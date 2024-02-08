@@ -12,7 +12,9 @@ use std::{
     sync::Arc,
 };
 
+use conversion::ToPy;
 use js_sys::{JsString, Object, Reflect, WebAssembly};
+use pyo3::prelude::*;
 use slab::Slab;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_runtime_layer::{
@@ -292,6 +294,23 @@ impl ToStoredJs for Value<Engine> {
     }
 }
 
+impl ToPy for Value<Engine> {
+    fn to_py(&self, py: Python) -> Py<PyAny> {
+        match self {
+            Value::I32(v) => v.to_object(py),
+            Value::I64(v) => v.to_object(py),
+            Value::F32(v) => v.to_object(py),
+            Value::F64(v) => v.to_object(py),
+            Value::FuncRef(Some(_func)) => {
+                // FIXME: missing implementation
+                todo!()
+            }
+            Value::FuncRef(None) => py.None(),
+            Value::ExternRef(_) => todo!(),
+        }
+    }
+}
+
 impl FromStoredJs for Value<Engine> {
     /// Convert from a JavaScript value.
     ///
@@ -357,7 +376,7 @@ impl ToStoredJs for Extern<Engine> {
     fn to_stored_js<T>(&self, store: &StoreInner<T>) -> JsValue {
         match self {
             Extern::Global(v) => v.to_stored_js(store).into(),
-            Extern::Table(v) => v.to_stored_js(store).into(),
+            Extern::Table(_v) => todo!(), // FIXME
             Extern::Memory(v) => v.to_stored_js(store).into(),
             Extern::Func(v) => v.to_stored_js(store).into(),
         }

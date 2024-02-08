@@ -8,7 +8,7 @@ use wasm_runtime_layer::backend::{Export, Extern, Imports, WasmInstance};
 
 use crate::{
     conversion::ToStoredJs, module::ParsedModule, Engine, Func, Global, JsErrorMsg, Memory, Module,
-    StoreInner, Table,
+    StoreInner,
 };
 
 /// A WebAssembly Instance.
@@ -199,14 +199,15 @@ fn process_exports<T>(
 
                         Extern::Func(func)
                     } else if value.is_instance_of::<WebAssembly::Table>() {
-                        let table = Table::from_stored_js(
-                            store,
-                            value,
-                            signature.try_into_table().unwrap(),
-                        )
-                        .unwrap();
+                        // let table = Table::from_stored_js(
+                        //     store,
+                        //     value,
+                        //     signature.try_into_table().unwrap(),
+                        // )
+                        // .unwrap();
 
-                        Extern::Table(table)
+                        // Extern::Table(table)
+                        todo!() // FIXME
                     } else if value.is_instance_of::<WebAssembly::Memory>() {
                         let memory = Memory::from_exported_memory(
                             store,

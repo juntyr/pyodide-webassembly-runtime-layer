@@ -1,139 +1,86 @@
-use anyhow::Context;
-use js_sys::{Object, Reflect, WebAssembly};
-use wasm_bindgen::{JsCast, JsValue};
+use pyo3::{intern, prelude::*, types::PyDict};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmTable},
     TableType, ValueType,
 };
 
 use crate::{
-    conversion::ToStoredJs, Engine, JsErrorMsg, StoreContextMut, StoreInner, ValueTypeExt,
+    conversion::{instanceof, ToPy},
+    Engine, ValueTypeExt,
 };
 
 #[derive(Debug, Clone)]
 /// WebAssembly table
 pub struct Table {
-    /// The id of the table in the store
-    pub(crate) id: usize,
-}
-
-/// Holds the inner WebAssembly table
-pub(crate) struct TableInner {
     /// Table reference
-    table: WebAssembly::Table,
+    table: Py<PyAny>,
     /// The table signature
     ty: TableType,
 }
 
-impl std::fmt::Debug for TableInner {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TableInner")
-            .field("ty", &self.ty)
-            .field("inner", &self.table)
-            .finish_non_exhaustive()
-    }
-}
-
-impl Table {
-    /// Creates a new table from a JS value
-    pub(crate) fn from_stored_js<T>(
-        store: &mut StoreInner<T>,
-        value: JsValue,
-        ty: TableType,
-    ) -> Option<Self> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Table::from_js", ?value).entered();
-        let table = value.dyn_into::<WebAssembly::Table>().ok()?;
-
-        assert!(table.length() >= ty.minimum());
-        assert_eq!(ty.element(), ValueType::FuncRef);
-
-        let inner = TableInner { ty, table };
-
-        Some(store.insert_table(inner))
-    }
-}
-
-impl ToStoredJs for Table {
-    type Repr = WebAssembly::Table;
-
-    fn to_stored_js<T>(&self, store: &StoreInner<T>) -> WebAssembly::Table {
-        let inner = &store.tables[self.id];
-        inner.table.clone()
-    }
-}
-
 impl WasmTable<Engine> for Table {
     fn new(
-        mut ctx: impl AsContextMut<Engine>,
+        _ctx: impl AsContextMut<Engine>,
         ty: TableType,
         init: Value<Engine>,
     ) -> anyhow::Result<Self> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Table::new", ?ty, ?init).entered();
-        let mut ctx: StoreContextMut<_> = ctx.as_context_mut();
+        Python::with_gil(|py| -> anyhow::Result<Self> {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Table::new", ?ty, ?init).entered();
 
-        let desc = Object::new();
-        Reflect::set(
-            &desc,
-            &"element".into(),
-            &ty.element().as_js_descriptor().into(),
-        )
-        .unwrap();
+            let desc = PyDict::new(py);
+            desc.set_item(intern!(py, "element"), ty.element().as_js_descriptor())?;
+            desc.set_item(intern!(py, "initial"), ty.minimum())?;
 
-        Reflect::set(&desc, &"initial".into(), &ty.minimum().into()).unwrap();
-        if let Some(max) = ty.maximum() {
-            Reflect::set(&desc, &"initial".into(), &max.into()).unwrap();
-        }
+            if let Some(max) = ty.maximum() {
+                desc.set_item(intern!(py, "maximum"), max)?;
+            }
 
-        let table = WebAssembly::Table::new(&desc).map_err(JsErrorMsg::from)?;
+            let init = init.to_py(py);
 
-        for i in 0..ty.minimum() {
-            table
-                .set(i, init.to_stored_js(&ctx).unchecked_ref())
-                .unwrap();
-        }
+            let table = web_assembly_table(py)?
+                .getattr(intern!(py, "new"))?
+                .call1((desc, init))?;
 
-        let table = TableInner {
-            // values: std::iter::repeat(init).take(ty.min as usize).collect(),
-            ty,
-            table,
-        };
-
-        let table = ctx.insert_table(table);
-
-        Ok(table)
+            Ok(Self {
+                ty,
+                table: table.into_py(py),
+            })
+        })
     }
 
     /// Returns the type and limits of the table.
-    fn ty(&self, ctx: impl AsContext<Engine>) -> TableType {
-        ctx.as_context().tables[self.id].ty
+    fn ty(&self, _ctx: impl AsContext<Engine>) -> TableType {
+        self.ty
     }
 
     /// Returns the current size of the table.
-    fn size(&self, ctx: impl AsContext<Engine>) -> u32 {
-        ctx.as_context().tables[self.id].table.length()
+    fn size(&self, _ctx: impl AsContext<Engine>) -> u32 {
+        Python::with_gil(|py| -> Result<u32, PyErr> {
+            let table = self.table.as_ref(py);
+            table.getattr(intern!(py, "length"))?.extract()
+        })
+        .unwrap()
     }
 
     /// Grows the table by the given amount of elements.
     fn grow(
         &self,
-        mut ctx: impl AsContextMut<Engine>,
+        _ctx: impl AsContextMut<Engine>,
         delta: u32,
         init: Value<Engine>,
     ) -> anyhow::Result<u32> {
-        let ctx: &mut StoreInner<_> = &mut *ctx.as_context_mut();
-        let init = init.to_stored_js(ctx);
-        let init = init.unchecked_ref();
+        Python::with_gil(|py| {
+            let init = init.to_py(py);
 
-        let inner = &mut ctx.tables[self.id];
-        let old_len = inner.table.grow(delta).map_err(JsErrorMsg::from)?;
+            let table = self.table.as_ref(py);
 
-        for i in old_len..(old_len + delta) {
-            inner.table.set(i, init).unwrap();
-        }
+            let old_len = table
+                .call_method1(intern!(py, "grow"), (delta, init))?
+                .extract()?;
 
-        Ok(old_len)
+            Ok(old_len)
+        })
     }
 
     /// Returns the table element value at `index`.
@@ -151,26 +98,49 @@ impl WasmTable<Engine> for Table {
     /// Sets the value of this table at `index`.
     fn set(
         &self,
-        mut ctx: impl AsContextMut<Engine>,
+        _ctx: impl AsContextMut<Engine>,
         index: u32,
         value: Value<Engine>,
     ) -> anyhow::Result<()> {
-        let ctx: &mut StoreInner<_> = &mut *ctx.as_context_mut();
-        // RA breaks on this and sees the wrong impl of `value.get`
-        //
-        // Explicitely telling it that this is a slice of Value<Engine> causes it to see the
-        // slice::get method rather than the WasmTable::get function, which shouldn't happen and is
-        // a bug since &[]` does not implement `WasmTable`, but alas...
-        let value = value.to_stored_js(ctx);
+        Python::with_gil(|py| {
+            let value = value.to_py(py);
 
-        let inner: &mut TableInner = &mut ctx.tables[self.id];
+            let table = self.table.as_ref(py);
 
-        inner
-            .table
-            .set(index, value.unchecked_ref())
-            .map_err(JsErrorMsg::from)
-            .context("Invalid index")?;
+            table.call_method1(intern!(py, "set"), (index, value))?;
 
-        Ok(())
+            Ok(())
+        })
     }
+}
+
+impl Table {
+    #[allow(unused)] // FIXME
+    /// Creates a new table from a Python value
+    pub(crate) fn from_stored_py(table: &PyAny, ty: TableType) -> Result<Option<Self>, PyErr> {
+        #[cfg(feature = "tracing")]
+        let _span = tracing::trace_span!("Table::from_py", ?value).entered();
+
+        let py = table.py();
+
+        if !instanceof(py, table, web_assembly_table(py)?)? {
+            return Ok(None);
+        }
+
+        let table_length: u32 = table.getattr(intern!(py, "length"))?.extract()?;
+
+        assert!(table_length >= ty.minimum());
+        assert_eq!(ty.element(), ValueType::FuncRef);
+
+        Ok(Some(Self {
+            ty,
+            table: table.into_py(py),
+        }))
+    }
+}
+
+fn web_assembly_table(py: Python) -> Result<&PyAny, PyErr> {
+    py.import(intern!(py, "js"))?
+        .getattr(intern!(py, "WebAssembly"))?
+        .getattr(intern!(py, "Table"))
 }

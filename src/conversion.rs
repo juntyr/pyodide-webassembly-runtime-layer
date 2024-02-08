@@ -1,4 +1,5 @@
 use js_sys::Number;
+use pyo3::{intern, prelude::*};
 use wasm_bindgen::JsValue;
 
 use crate::StoreInner;
@@ -43,6 +44,26 @@ pub trait ToJs {
 
     /// Convert this value to JavaScript
     fn to_js(&self) -> Self::Repr;
+}
+
+/// Converts a Rust type to Python
+pub trait ToPy {
+    /// Convert this value to Python
+    fn to_py(&self, py: Python) -> Py<PyAny>;
+}
+
+/// Check if `object` is an instance of the JavaScript class with `constructor`.
+pub fn instanceof(py: Python, object: &PyAny, constructor: &PyAny) -> Result<bool, PyErr> {
+    let instanceof = py
+        .import(intern!(py, "pyodide"))?
+        .getattr(intern!(py, "code"))?
+        .getattr(intern!(py, "run_js"))?
+        .call1((
+            "function isInstanceOf(object, constructor){ return (object instanceof \
+             constructor); } isInstanceOf",
+        ))?;
+
+    instanceof.call1((object, constructor))?.extract()
 }
 
 impl<V> FromStoredJs for V
