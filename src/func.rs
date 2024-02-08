@@ -1,13 +1,14 @@
 use anyhow::Context;
 use js_sys::{Array, Function};
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
-
-use crate::FuncType;
-
-use super::{
-    conversion::ToStoredJs, DropResource, Engine, JsErrorMsg, StoreContextMut, StoreInner,
+use wasm_runtime_layer::{
+    backend::{AsContext, AsContextMut, Value, WasmFunc},
+    FuncType,
 };
-use crate::backend::{AsContext, AsContextMut, Value, WasmFunc};
+
+use crate::{
+    conversion::ToStoredJs, DropResource, Engine, JsErrorMsg, StoreContextMut, StoreInner, ValueExt,
+};
 
 /// A bound function
 #[derive(Debug, Clone)]
@@ -72,7 +73,7 @@ macro_rules! func_wrapper {
             #[allow(unused_mut)]
             let mut store = StoreContextMut::from_ref(store);
 
-            let _arg_types = &ty.params_results[..ty.len_params];
+            let _arg_types = &ty.params();
 
             let args = [
                 $(
@@ -163,7 +164,7 @@ impl WasmFunc<Engine> for Func {
             }
         };
 
-        let (resource, func) = match ty.len_params {
+        let (resource, func) = match ty.params().len() {
             0 => func_wrapper!(store_ptr, ty, func,),
             1 => func_wrapper!(store_ptr, ty, func, 0 => a),
             2 => func_wrapper!(store_ptr, ty, func, 0 => a, 1 => b),

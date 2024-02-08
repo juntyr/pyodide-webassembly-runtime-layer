@@ -1,7 +1,7 @@
 use js_sys::Number;
 use wasm_bindgen::JsValue;
 
-use super::StoreInner;
+use crate::StoreInner;
 
 /// Converts a Rust type from JavaScript which needs to be stored in the store
 pub trait FromStoredJs {
