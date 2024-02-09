@@ -7,8 +7,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_runtime_layer::backend::{Export, Extern, Imports, WasmInstance};
 
 use crate::{
-    conversion::ToStoredJs, module::ParsedModule, Engine, Func, Global, JsErrorMsg, Module,
-    StoreInner,
+    conversion::ToStoredJs, module::ParsedModule, Engine, Func, JsErrorMsg, Module, StoreInner,
 };
 
 /// A WebAssembly Instance.
@@ -219,14 +218,15 @@ fn process_exports<T>(
                         // Extern::Memory(memory)
                         todo!() // FIXME
                     } else if value.is_instance_of::<WebAssembly::Global>() {
-                        let global = Global::from_exported_global(
-                            store,
-                            value,
-                            signature.try_into_global().unwrap(),
-                        )
-                        .unwrap();
+                        // let global = Global::from_exported_global(
+                        //     store,
+                        //     value,
+                        //     signature.try_into_global().unwrap(),
+                        // )
+                        // .unwrap();
 
-                        Extern::Global(global)
+                        // Extern::Global(global)
+                        todo!() // FIXME
                     } else {
                         #[cfg(feature = "tracing")]
                         tracing::error!("Unsupported export type {value:?}");

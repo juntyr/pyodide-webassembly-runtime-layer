@@ -12,20 +12,23 @@ use std::{
     sync::Arc,
 };
 
-use conversion::ToPy;
-use js_sys::{JsString, Object, Reflect, WebAssembly};
+use js_sys::{JsString, Reflect};
 use pyo3::prelude::*;
 use slab::Slab;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, Extern, Value, WasmEngine, WasmExternRef, WasmGlobal},
-    GlobalType, ValueType,
+    backend::{AsContext, AsContextMut, Extern, Value, WasmEngine},
+    ValueType,
 };
 
-/// Conversion to and from JavaScript
+/// Conversion to and from Python
 mod conversion;
+/// Extern host references
+mod externref;
 /// Functions
 mod func;
+/// Globals
+mod global;
 /// Instances
 mod instance;
 /// Memories
@@ -37,7 +40,9 @@ mod store;
 /// WebAssembly tables
 mod table;
 
+pub use externref::ExternRef;
 pub use func::Func;
+pub use global::Global;
 pub use instance::Instance;
 pub use memory::Memory;
 pub use module::Module;
@@ -45,7 +50,7 @@ pub use store::{Store, StoreContext, StoreContextMut, StoreInner};
 pub use table::Table;
 
 use self::{
-    conversion::{FromJs, FromStoredJs, ToJs, ToStoredJs},
+    conversion::{FromJs, FromStoredJs, ToJs, ToPy, ToStoredJs},
     module::{ModuleInner, ParsedModule},
 };
 
@@ -92,23 +97,14 @@ impl From<JsValue> for JsErrorMsg {
 
 impl WasmEngine for Engine {
     type ExternRef = ExternRef;
-
     type Func = Func;
-
     type Global = Global;
-
     type Instance = Instance;
-
     type Memory = Memory;
-
     type Module = Module;
-
     type Store<T> = Store<T>;
-
     type StoreContext<'a, T: 'a> = StoreContext<'a, T>;
-
     type StoreContextMut<'a, T: 'a> = StoreContextMut<'a, T>;
-
     type Table = Table;
 }
 
@@ -167,111 +163,6 @@ impl EngineInner {
             id: self.modules.insert(module),
             parsed,
         }
-    }
-}
-
-/// A global variable accesible as an import or export in a module
-///
-/// Stored within the store
-#[derive(Debug, Clone)]
-pub struct Global {
-    /// The id of the global in the store
-    pub(crate) id: usize,
-}
-
-/// Holds the inner state of the global
-#[derive(Debug)]
-pub(crate) struct GlobalInner {
-    /// The global value
-    value: WebAssembly::Global,
-    /// The global type
-    ty: GlobalType,
-}
-
-impl ToStoredJs for Global {
-    type Repr = WebAssembly::Global;
-
-    fn to_stored_js<T>(&self, store: &StoreInner<T>) -> WebAssembly::Global {
-        let global = &store.globals[self.id];
-
-        global.value.clone()
-    }
-}
-
-impl Global {
-    /// Creates a new global from a JS value
-    pub(crate) fn from_exported_global<T>(
-        store: &mut StoreInner<T>,
-        value: JsValue,
-        signature: GlobalType,
-    ) -> Option<Self> {
-        let global: &WebAssembly::Global = value.dyn_ref()?;
-
-        Some(store.insert_global(GlobalInner {
-            value: global.clone(),
-            ty: signature,
-        }))
-    }
-}
-
-impl WasmGlobal<Engine> for Global {
-    fn new(mut ctx: impl AsContextMut<Engine>, value: Value<Engine>, mutable: bool) -> Self {
-        let mut ctx = ctx.as_context_mut();
-
-        let ty = GlobalType::new(value.ty(), mutable);
-
-        let desc = Object::new();
-
-        Reflect::set(
-            &desc,
-            &"value".into(),
-            &value.ty().as_js_descriptor().into(),
-        )
-        .unwrap();
-        Reflect::set(&desc, &"mutable".into(), &mutable.into()).unwrap();
-
-        let value = value.to_stored_js(&ctx);
-
-        let global = GlobalInner {
-            value: WebAssembly::Global::new(&desc, &value).unwrap(),
-            ty,
-        };
-
-        ctx.insert_global(global)
-    }
-
-    fn ty(&self, ctx: impl AsContext<Engine>) -> GlobalType {
-        ctx.as_context().globals[self.id].ty
-    }
-
-    fn set(
-        &self,
-        mut ctx: impl AsContextMut<Engine>,
-        new_value: Value<Engine>,
-    ) -> anyhow::Result<()> {
-        let store: &mut StoreInner<_> = &mut ctx.as_context_mut();
-
-        let value = &new_value.to_stored_js(store);
-
-        let inner = &mut store.globals[self.id];
-
-        if !inner.ty.mutable() {
-            return Err(anyhow::anyhow!("Global is not mutable"));
-        }
-
-        inner.value.set_value(value);
-
-        Ok(())
-    }
-
-    fn get(&self, mut ctx: impl AsContextMut<Engine>) -> Value<Engine> {
-        let store: &mut StoreInner<_> = &mut ctx.as_context_mut();
-        let inner = &mut store.globals[self.id];
-
-        let ty = inner.ty;
-        let value = inner.value.value();
-
-        Value::from_js_typed(store, &ty.content(), value).unwrap()
     }
 }
 
@@ -354,28 +245,11 @@ impl FromStoredJs for Value<Engine> {
     }
 }
 
-#[derive(Debug, Clone)]
-/// Extern host reference type
-pub struct ExternRef {}
-
-impl WasmExternRef<Engine> for ExternRef {
-    fn new<T: 'static + Send + Sync>(_: impl AsContextMut<Engine>, _: Option<T>) -> Self {
-        unimplemented!("ExternRef is not supported in the web backend")
-    }
-
-    fn downcast<'a, T: 'static, S: 'a>(
-        &self,
-        _: <Engine as WasmEngine>::StoreContext<'a, S>,
-    ) -> anyhow::Result<Option<&'a T>> {
-        unimplemented!()
-    }
-}
-
 impl ToStoredJs for Extern<Engine> {
     type Repr = JsValue;
     fn to_stored_js<T>(&self, store: &StoreInner<T>) -> JsValue {
         match self {
-            Extern::Global(v) => v.to_stored_js(store).into(),
+            Extern::Global(_v) => todo!(), // FIXME
             Extern::Table(_v) => todo!(),  // FIXME
             Extern::Memory(_v) => todo!(), // FIXME
             Extern::Func(v) => v.to_stored_js(store).into(),
@@ -442,6 +316,13 @@ trait ValueExt: Sized {
     /// Convert the JsValue into a Value of the supplied type
     fn from_js_typed<T>(store: &mut StoreInner<T>, ty: &ValueType, value: JsValue) -> Option<Self>;
 
+    /// Convert the PyAny value into a Value of the supplied type
+    fn from_py_typed<T>(
+        store: &mut StoreInner<T>,
+        ty: &ValueType,
+        value: &PyAny,
+    ) -> anyhow::Result<Self>;
+
     /// Convert a value to its type
     fn ty(&self) -> ValueType;
 }
@@ -463,6 +344,24 @@ impl ValueExt for Value<Engine> {
                     "conversion to a function or extern outside of a module not permitted"
                 );
                 None
+            }
+        }
+    }
+
+    fn from_py_typed<T>(
+        _store: &mut StoreInner<T>,
+        ty: &ValueType,
+        value: &PyAny,
+    ) -> anyhow::Result<Self> {
+        match ty {
+            ValueType::I32 => Ok(Value::I32(value.extract()?)),
+            ValueType::I64 => Ok(Value::I64(value.extract()?)),
+            ValueType::F32 => Ok(Value::F32(value.extract()?)),
+            ValueType::F64 => Ok(Value::F64(value.extract()?)),
+            ValueType::FuncRef | ValueType::ExternRef => {
+                anyhow::bail!(
+                    "conversion to a function or extern outside of a module not permitted"
+                )
             }
         }
     }

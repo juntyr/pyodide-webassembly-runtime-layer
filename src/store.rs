@@ -8,10 +8,7 @@ use wasm_runtime_layer::backend::{
     AsContext, AsContextMut, WasmEngine, WasmStore, WasmStoreContext, WasmStoreContextMut,
 };
 
-use crate::{
-    func::FuncInner, instance::InstanceInner, DropResource, Engine, Func, Global, GlobalInner,
-    Instance,
-};
+use crate::{func::FuncInner, instance::InstanceInner, DropResource, Engine, Func, Instance};
 
 /// Owns all the data for the wasm module
 ///
@@ -98,7 +95,6 @@ impl<T> WasmStore<T, Engine> for Store<T> {
             engine: engine.clone(),
             instances: Slab::new(),
             funcs: Slab::new(),
-            globals: Slab::new(),
             drop_resources: Vec::new(),
             data,
         }))
@@ -161,8 +157,6 @@ pub struct StoreInner<T> {
     pub(crate) instances: Slab<InstanceInner>,
     /// Modules are not Send + Sync
     pub(crate) funcs: Slab<FuncInner>,
-    /// Globals
-    pub(crate) globals: Slab<GlobalInner>,
     /// The user data
     pub(crate) data: T,
 
@@ -179,13 +173,6 @@ impl<T> StoreInner<T> {
     pub(crate) fn insert_func(&mut self, func: FuncInner) -> Func {
         Func {
             id: self.funcs.insert(func),
-        }
-    }
-
-    /// Inserts a new global and returns its id
-    pub(crate) fn insert_global(&mut self, global: GlobalInner) -> Global {
-        Global {
-            id: self.globals.insert(global),
         }
     }
 
