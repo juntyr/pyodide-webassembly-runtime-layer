@@ -39,30 +39,17 @@ impl WasmInstance<Engine> for Instance {
         let _span = tracing::debug_span!("Instance::new").entered();
         let store: &mut StoreInner<_> = &mut *store.as_context_mut();
 
-        let instance;
-        let parsed;
-        let imports_object;
+        let imports_object = create_imports_object(store, imports);
 
-        {
-            let mut engine = store.engine.borrow_mut();
-            let module = &mut engine.modules[module.id];
-            parsed = module.parsed.clone();
-
-            imports_object = create_imports_object(store, imports);
-
-            // TODO: async instantiation, possibly through a `.ready().await` call on the returned
-            // module
-            // let instance = WebAssembly::instantiate_module(&module.module, &imports);
-            instance = WebAssembly::Instance::new(&module.module, &imports_object)
-                .map_err(JsErrorMsg::from)
-                .with_context(|| "Failed to instantiate module")?;
-        };
+        let instance = WebAssembly::Instance::new(module.module(), &imports_object)
+            .map_err(JsErrorMsg::from)
+            .with_context(|| "Failed to instantiate module")?;
 
         #[cfg(feature = "tracing")]
         let _span = tracing::debug_span!("get_exports").entered();
 
         let js_exports = Reflect::get(&instance, &"exports".into()).expect("exports object");
-        let exports = process_exports(store, js_exports, &parsed)?;
+        let exports = process_exports(store, js_exports, module.parsed())?;
 
         let instance = InstanceInner { instance, exports };
 

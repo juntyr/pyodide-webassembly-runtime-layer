@@ -4,17 +4,10 @@
 //! `pyodide_wasm_runtime_layer` implements the `wasm_runtime_layer` API to
 //! provide access to the web browser's `WebAssembly` runtime using `pyodide`.
 
-use std::{
-    cell::{RefCell, RefMut},
-    error::Error,
-    fmt::Display,
-    rc::Rc,
-    sync::Arc,
-};
+use std::{error::Error, fmt::Display};
 
 use js_sys::{JsString, Reflect};
 use pyo3::prelude::*;
-use slab::Slab;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Extern, Value, WasmEngine},
@@ -49,10 +42,7 @@ pub use module::Module;
 pub use store::{Store, StoreContext, StoreContextMut, StoreInner};
 pub use table::Table;
 
-use self::{
-    conversion::{FromJs, FromStoredJs, ToJs, ToPy, ToStoredJs},
-    module::{ModuleInner, ParsedModule},
-};
+use self::conversion::{FromJs, FromStoredJs, ToJs, ToPy, ToStoredJs};
 
 /// Helper to convert a `JsValue` into a proper error, as well as making it `Send` + `Sync`
 #[derive(Debug, Clone)]
@@ -128,42 +118,7 @@ impl DropResource {
 #[derive(Default, Debug, Clone)]
 /// Runtime for WebAssembly
 pub struct Engine {
-    /// Inner state of the engine
-    ///
-    /// May be accessed at any time, but not recursively
-    inner: Rc<RefCell<EngineInner>>,
-}
-
-impl Engine {
-    // /// Borrow the engine
-    // pub(crate) fn borrow(&self) -> Ref<EngineInner> {
-    //     self.inner.borrow()
-    // }
-
-    /// Mutably borrow the engine
-    pub(crate) fn borrow_mut(&self) -> RefMut<EngineInner> {
-        self.inner.borrow_mut()
-    }
-}
-
-/// Holds the inner mutable state of the engine
-#[derive(Default, Debug)]
-pub(crate) struct EngineInner {
-    /// Modules loaded into the engine
-    ///
-    /// This is a slab since the WasmModule needs to be `Send`, but the WebAssembly::Module is not.
-    /// The engine is not `Send` or `Sync` so they are stored here instead.
-    pub(crate) modules: Slab<ModuleInner>,
-}
-
-impl EngineInner {
-    /// Inserts a new module into the engine
-    pub fn insert_module(&mut self, module: ModuleInner, parsed: Arc<ParsedModule>) -> Module {
-        Module {
-            id: self.modules.insert(module),
-            parsed,
-        }
-    }
+    _private: (),
 }
 
 impl ToStoredJs for Value<Engine> {

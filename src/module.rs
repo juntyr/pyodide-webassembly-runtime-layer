@@ -2,54 +2,54 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use fxhash::FxHashMap;
-use js_sys::{Uint8Array, WebAssembly};
+use pyo3::{intern, prelude::*};
 use wasm_runtime_layer::{
     backend::WasmModule, ExportType, ExternType, FuncType, GlobalType, ImportType, MemoryType,
     TableType, ValueType,
 };
 
-use crate::{Engine, JsErrorMsg};
+use crate::Engine;
 
 #[derive(Debug, Clone)]
 /// A WebAssembly Module.
 pub struct Module {
-    /// The id of the module
-    pub(crate) id: usize,
-    /// The imports of the module
-    pub(crate) parsed: Arc<ParsedModule>,
-}
-
-/// A WebAssembly Module.
-#[derive(Debug)]
-pub(crate) struct ModuleInner {
+    #[allow(dead_code)] // FIXME
     /// The inner module
-    pub(crate) module: js_sys::WebAssembly::Module,
+    module: Py<PyAny>,
     /// The parsed module, containing import and export signatures
-    pub(crate) parsed: Arc<ParsedModule>,
+    parsed: Arc<ParsedModule>,
 }
 
 impl WasmModule<Engine> for Module {
-    fn new(engine: &Engine, mut stream: impl std::io::Read) -> anyhow::Result<Self> {
-        let mut buf = Vec::new();
-        stream
-            .read_to_end(&mut buf)
-            .context("Failed to read module bytes")?;
+    fn new(_engine: &Engine, mut stream: impl std::io::Read) -> anyhow::Result<Self> {
+        Python::with_gil(|py| {
+            let mut bytes = Vec::new();
+            stream
+                .read_to_end(&mut bytes)
+                .context("Failed to read module bytes")?;
 
-        let parsed = parse_module(&buf)?;
+            let parsed = parse_module(&bytes)?;
 
-        let module = WebAssembly::Module::new(&Uint8Array::from(buf.as_slice()).into())
-            .map_err(JsErrorMsg::from)?;
+            let buffer = py
+                .import(intern!(py, "js"))?
+                .getattr(intern!(py, "Uint8Array"))?
+                .getattr(intern!(py, "new"))?
+                .call1((bytes.as_slice(),))?;
 
-        let parsed = Arc::new(parsed);
+            let module = py
+                .import(intern!(py, "js"))?
+                .getattr(intern!(py, "WebAssembly"))?
+                .getattr(intern!(py, "Module"))?
+                .getattr(intern!(py, "new"))?
+                .call1((buffer,))?;
 
-        let module = ModuleInner {
-            module,
-            parsed: parsed.clone(),
-        };
+            let parsed = Arc::new(parsed);
 
-        let module = engine.borrow_mut().insert_module(module, parsed);
-
-        Ok(module)
+            Ok(Module {
+                module: module.into_py(py),
+                parsed,
+            })
+        })
     }
 
     fn exports(&self) -> Box<dyn '_ + Iterator<Item = ExportType<'_>>> {
@@ -74,6 +74,17 @@ impl WasmModule<Engine> for Module {
                     ty: kind.clone(),
                 }),
         )
+    }
+}
+
+impl Module {
+    pub(crate) fn module(&self) -> &js_sys::WebAssembly::Module {
+        // FIXME
+        todo!()
+    }
+
+    pub(crate) fn parsed(&self) -> &ParsedModule {
+        &self.parsed
     }
 }
 
@@ -149,8 +160,11 @@ pub(crate) fn parse_module(bytes: &[u8]) -> anyhow::Result<ParsedModule> {
                 for ty in section {
                     let ty = ty?;
 
-                    let ty = match ty.types() {
-                        [subtype] => match &subtype.composite_type {
+                    let mut subtypes = ty.types();
+                    let subtype = subtypes.next();
+
+                    let ty = match (subtype, subtypes.next()) {
+                        (Some(subtype), None) => match &subtype.composite_type {
                             wasmparser::CompositeType::Func(func_type) => FuncType::new(
                                 func_type.params().iter().map(ValueType::from_value),
                                 func_type.results().iter().map(ValueType::from_value),

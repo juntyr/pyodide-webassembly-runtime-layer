@@ -23,6 +23,6 @@ js-sys = { version = "0.3", default-features = false }
 pyo3 = { version = "0.20", default-features = false, features = ["macros"] }
 slab = { version = "0.4", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
-wasmparser = { version = "0.118", default-features = false }
+wasmparser = { version = "0.121", default-features = false }
 wasm-bindgen = { version = "0.2", default-features = false }
 wasm_runtime_layer = { version = "0.2", default-features = false }
