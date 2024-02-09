@@ -173,6 +173,17 @@ impl ToStoredJs for Extern<Engine> {
     }
 }
 
+impl ToPy for Extern<Engine> {
+    fn to_py(&self, py: Python) -> Py<PyAny> {
+        match self {
+            Extern::Global(v) => v.to_py(py),
+            Extern::Table(v) => v.to_py(py),
+            Extern::Memory(v) => v.to_py(py),
+            Extern::Func(v) => v.to_py(py),
+        }
+    }
+}
+
 trait ValueTypeExt {
     /// Converts this type into the canonical ABI kind
     ///

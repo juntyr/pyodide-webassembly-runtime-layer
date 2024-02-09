@@ -82,22 +82,21 @@ impl ToPy for Global {
 }
 
 impl Global {
-    #[allow(unused)] // FIXME
     /// Creates a new global from a Python value
     pub(crate) fn from_exported_global(
         value: &PyAny,
         signature: GlobalType,
-    ) -> Result<Option<Self>, PyErr> {
+    ) -> anyhow::Result<Self> {
         let py = value.py();
 
         if !instanceof(py, value, web_assembly_global(py)?)? {
-            return Ok(None);
+            anyhow::bail!("expected WebAssembly.Global but found {value:?}");
         }
 
-        Ok(Some(Self {
+        Ok(Self {
             value: value.into_py(py),
             ty: signature,
-        }))
+        })
     }
 }
 

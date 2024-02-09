@@ -158,23 +158,24 @@ impl ToPy for Func {
 }
 
 impl Func {
-    #[allow(unused)] // FIXME
     /// Creates a new function from a Python value
     pub(crate) fn from_exported_function(
         value: &PyAny,
         signature: FuncType,
-    ) -> Result<Option<Self>, PyErr> {
+    ) -> anyhow::Result<Self> {
         let py = value.py();
 
         if !value.is_callable() {
-            return Ok(None);
+            anyhow::bail!(
+                "expected WebAssembly.Function but found {value:?} which is not callable"
+            );
         }
 
-        Ok(Some(Self {
+        Ok(Self {
             func: value.into_py(py),
             ty: signature,
             user_state: None,
-        }))
+        })
     }
 }
 

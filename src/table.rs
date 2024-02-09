@@ -121,27 +121,26 @@ impl ToPy for Table {
 }
 
 impl Table {
-    #[allow(unused)] // FIXME
     /// Creates a new table from a Python value
-    pub(crate) fn from_stored_py(table: &PyAny, ty: TableType) -> Result<Option<Self>, PyErr> {
+    pub(crate) fn from_exported_table(value: &PyAny, ty: TableType) -> anyhow::Result<Self> {
         #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Table::from_py", ?table).entered();
+        let _span = tracing::trace_span!("Table::from_py", ?value).entered();
 
-        let py = table.py();
+        let py = value.py();
 
-        if !instanceof(py, table, web_assembly_table(py)?)? {
-            return Ok(None);
+        if !instanceof(py, value, web_assembly_table(py)?)? {
+            anyhow::bail!("expected WebAssembly.Table but found {value:?}");
         }
 
-        let table_length: u32 = table.getattr(intern!(py, "length"))?.extract()?;
+        let table_length: u32 = value.getattr(intern!(py, "length"))?.extract()?;
 
         assert!(table_length >= ty.minimum());
         assert_eq!(ty.element(), ValueType::FuncRef);
 
-        Ok(Some(Self {
+        Ok(Self {
             ty,
-            table: table.into_py(py),
-        }))
+            table: value.into_py(py),
+        })
     }
 }
 

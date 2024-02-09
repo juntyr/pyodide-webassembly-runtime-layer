@@ -130,22 +130,18 @@ impl ToPy for Memory {
 }
 
 impl Memory {
-    #[allow(unused)] // FIXME
     /// Construct a memory from an exported memory object
-    pub(crate) fn from_exported_memory(
-        value: &PyAny,
-        ty: MemoryType,
-    ) -> Result<Option<Self>, PyErr> {
+    pub(crate) fn from_exported_memory(value: &PyAny, ty: MemoryType) -> anyhow::Result<Self> {
         let py = value.py();
 
         if !instanceof(py, value, web_assembly_memory(py)?)? {
-            return Ok(None);
+            anyhow::bail!("expected WebAssembly.Memory but found {value:?}");
         }
 
-        Ok(Some(Self {
+        Ok(Self {
             value: value.into_py(py),
             ty,
-        }))
+        })
     }
 }
 

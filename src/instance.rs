@@ -3,10 +3,18 @@ use std::collections::BTreeMap;
 use anyhow::{bail, Context};
 use fxhash::FxHashMap;
 use js_sys::{JsString, Object, Reflect, WebAssembly};
+use pyo3::{intern, prelude::*, types::IntoPyDict};
 use wasm_bindgen::{JsCast, JsValue};
-use wasm_runtime_layer::backend::{Export, Extern, Imports, WasmInstance};
+use wasm_runtime_layer::{
+    backend::{Export, Extern, Imports, WasmInstance},
+    ExternType,
+};
 
-use crate::{conversion::ToStoredJs, module::ParsedModule, Engine, JsErrorMsg, Module, StoreInner};
+use crate::{
+    conversion::{ToPy, ToStoredJs},
+    module::ParsedModule,
+    Engine, Func, Global, JsErrorMsg, Memory, Module, StoreInner, Table,
+};
 
 /// A WebAssembly Instance.
 #[derive(Debug, Clone)]
@@ -125,6 +133,33 @@ fn create_imports_object<T>(store: &StoreInner<T>, imports: &Imports<Engine>) ->
         })
 }
 
+/// Creates the js import map
+fn _create_imports_object_v2<'py>(py: Python<'py>, imports: &Imports<Engine>) -> &'py PyAny {
+    #[cfg(feature = "tracing")]
+    let _span = tracing::debug_span!("process_imports").entered();
+
+    imports
+        .into_iter()
+        .map(|((module, name), import)| {
+            #[cfg(feature = "tracing")]
+            tracing::trace!(?module, ?name, ?import, "import");
+            let import = import.to_py(py);
+
+            #[cfg(feature = "tracing")]
+            tracing::trace!(module, name, "export");
+
+            (module, (name, import))
+        })
+        .fold(BTreeMap::<String, Vec<_>>::new(), |mut acc, (m, value)| {
+            acc.entry(m).or_default().push(value);
+            acc
+        })
+        .into_iter()
+        .map(|(module, imports)| (module, imports.into_py_dict(py)))
+        .into_py_dict(py)
+        .as_ref()
+}
+
 /// Processes a wasm module's exports into a hashmap
 fn process_exports<T>(
     _store: &mut StoreInner<T>,
@@ -225,6 +260,44 @@ fn process_exports<T>(
             };
 
             // Ok((name, ext))
+        })
+        .collect()
+}
+
+#[allow(unused)] // FIXME
+/// Processes a wasm module's exports into a hashmap
+fn _process_exports_v2(
+    exports: &PyAny,
+    parsed: &ParsedModule,
+) -> anyhow::Result<FxHashMap<String, Extern<Engine>>> {
+    let py = exports.py();
+
+    #[cfg(feature = "tracing")]
+    let _span = tracing::debug_span!("process_exports", ?exports).entered();
+
+    exports
+        .call_method0(intern!(py, "object_entries"))?
+        .iter()?
+        .map(|entry| {
+            let (name, value): (String, &PyAny) = entry?.extract()?;
+
+            #[cfg(feature = "tracing")]
+            let _span = tracing::trace_span!("process_export", ?name, ?value).entered();
+
+            let signature = parsed.exports.get(&name).expect("export signature").clone();
+
+            let export = match signature {
+                ExternType::Func(signature) => {
+                    Extern::Func(Func::from_exported_function(value, signature)?)
+                }
+                ExternType::Global(signature) => {
+                    Extern::Global(Global::from_exported_global(value, signature)?)
+                }
+                ExternType::Memory(ty) => Extern::Memory(Memory::from_exported_memory(value, ty)?),
+                ExternType::Table(ty) => Extern::Table(Table::from_exported_table(value, ty)?),
+            };
+
+            Ok((name, export))
         })
         .collect()
 }
