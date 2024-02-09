@@ -114,6 +114,12 @@ impl WasmTable<Engine> for Table {
     }
 }
 
+impl ToPy for Table {
+    fn to_py(&self, py: Python) -> Py<PyAny> {
+        self.table.clone_ref(py)
+    }
+}
+
 impl Table {
     #[allow(unused)] // FIXME
     /// Creates a new table from a Python value

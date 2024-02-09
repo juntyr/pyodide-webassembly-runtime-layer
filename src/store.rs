@@ -9,8 +9,8 @@ use wasm_runtime_layer::backend::{
 };
 
 use crate::{
-    func::FuncInner, instance::InstanceInner, memory::MemoryInner, DropResource, Engine, Func,
-    Global, GlobalInner, Instance, Memory,
+    func::FuncInner, instance::InstanceInner, DropResource, Engine, Func, Global, GlobalInner,
+    Instance,
 };
 
 /// Owns all the data for the wasm module
@@ -99,7 +99,6 @@ impl<T> WasmStore<T, Engine> for Store<T> {
             instances: Slab::new(),
             funcs: Slab::new(),
             globals: Slab::new(),
-            memories: Slab::new(),
             drop_resources: Vec::new(),
             data,
         }))
@@ -164,8 +163,6 @@ pub struct StoreInner<T> {
     pub(crate) funcs: Slab<FuncInner>,
     /// Globals
     pub(crate) globals: Slab<GlobalInner>,
-    /// Guest memories
-    pub(crate) memories: Slab<MemoryInner>,
     /// The user data
     pub(crate) data: T,
 
@@ -196,13 +193,6 @@ impl<T> StoreInner<T> {
     pub(crate) fn insert_instance(&mut self, instance: InstanceInner) -> Instance {
         Instance {
             id: self.instances.insert(instance),
-        }
-    }
-
-    /// Inserts a new guest memory and returns its id
-    pub(crate) fn insert_memory(&mut self, memory: MemoryInner) -> Memory {
-        Memory {
-            id: self.memories.insert(memory),
         }
     }
 

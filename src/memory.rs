@@ -1,124 +1,156 @@
-use js_sys::{ArrayBuffer, Object, Reflect, Uint8Array, WebAssembly};
-use wasm_bindgen::{JsCast as _, JsValue};
+use pyo3::{
+    intern,
+    prelude::*,
+    types::{PyBytes, PyDict},
+};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, WasmMemory},
     MemoryType,
 };
 
-use crate::{conversion::ToStoredJs, Engine, JsErrorMsg, StoreInner};
+use crate::{
+    conversion::{instanceof, ToPy},
+    Engine,
+};
 
 #[derive(Debug, Clone)]
 /// WebAssembly memory
 pub struct Memory {
-    /// The id of the memory in the store
-    pub id: usize,
-}
-
-#[derive(Debug)]
-/// Holds the inner state of the memory
-pub(crate) struct MemoryInner {
     /// The memory value
-    pub value: WebAssembly::Memory,
+    pub value: Py<PyAny>,
     /// The memory type
     pub ty: MemoryType,
 }
 
-impl MemoryInner {
-    /// Returns a `Uint8Array` view of the memory
-    pub(crate) fn as_uint8array(&self, offset: u32, len: u32) -> Uint8Array {
-        let buffer = self.value.buffer();
-        let buffer = buffer.dyn_ref::<ArrayBuffer>().unwrap();
+impl WasmMemory<Engine> for Memory {
+    fn new(_ctx: impl AsContextMut<Engine>, ty: MemoryType) -> anyhow::Result<Self> {
+        Python::with_gil(|py| {
+            let desc = PyDict::new(py);
+            desc.set_item(intern!(py, "initial"), ty.initial_pages())?;
 
-        Uint8Array::new_with_byte_offset_and_length(buffer, offset, len)
+            if let Some(maximum) = ty.maximum_pages() {
+                desc.set_item(intern!(py, "maximum"), maximum)?;
+            }
+
+            let memory = web_assembly_memory(py)?
+                .getattr(intern!(py, "new"))?
+                .call1((desc,))?;
+
+            Ok(Self {
+                ty,
+                value: memory.into_py(py),
+            })
+        })
+    }
+
+    fn ty(&self, _ctx: impl AsContext<Engine>) -> MemoryType {
+        self.ty
+    }
+
+    fn grow(&self, _ctx: impl AsContextMut<Engine>, additional: u32) -> anyhow::Result<u32> {
+        Python::with_gil(|py| {
+            let memory = self.value.as_ref(py);
+
+            let old_pages = memory
+                .call_method1(intern!(py, "grow"), (additional,))?
+                .extract()?;
+
+            Ok(old_pages)
+        })
+    }
+
+    fn current_pages(&self, _ctx: impl AsContext<Engine>) -> u32 {
+        const PAGE_SIZE: u64 = 1 << 16;
+
+        Python::with_gil(|py| -> Result<u32, PyErr> {
+            let memory = self.value.as_ref(py);
+
+            let byte_len: u64 = memory
+                .getattr(intern!(py, "buffer"))?
+                .getattr(intern!(py, "byteLength"))?
+                .extract()?;
+
+            let pages = u32::try_from(byte_len / PAGE_SIZE)?;
+            Ok(pages)
+        })
+        .unwrap()
+    }
+
+    fn read(
+        &self,
+        _ctx: impl AsContext<Engine>,
+        offset: usize,
+        buffer: &mut [u8],
+    ) -> anyhow::Result<()> {
+        Python::with_gil(|py| {
+            let memory = self.value.as_ref(py);
+
+            let memory = memory.getattr(intern!(py, "buffer"))?;
+            let memory = py
+                .import(intern!(py, "js"))?
+                .getattr(intern!(py, "Uint8Array"))?
+                .call_method1(intern!(py, "new"), (memory, offset, buffer.len()))?;
+
+            let bytes: &PyBytes = memory.call_method0(intern!(py, "to_bytes"))?.extract()?;
+            buffer.copy_from_slice(bytes.as_bytes());
+
+            Ok(())
+        })
+    }
+
+    fn write(
+        &self,
+        _ctx: impl AsContextMut<Engine>,
+        offset: usize,
+        buffer: &[u8],
+    ) -> anyhow::Result<()> {
+        Python::with_gil(|py| {
+            let memory = self.value.as_ref(py);
+
+            let memory = memory.getattr(intern!(py, "buffer"))?;
+            let memory = py
+                .import(intern!(py, "js"))?
+                .getattr(intern!(py, "Uint8Array"))?
+                .call_method1(intern!(py, "new"), (memory, offset, buffer.len()))?;
+
+            #[cfg(feature = "tracing")]
+            tracing::debug!("writing {buffer:?} into guest");
+
+            memory.call_method1(intern!(py, "assign"), (buffer,))?;
+
+            Ok(())
+        })
     }
 }
 
-impl ToStoredJs for Memory {
-    type Repr = WebAssembly::Memory;
-    fn to_stored_js<T>(&self, store: &StoreInner<T>) -> WebAssembly::Memory {
-        let memory = &store.memories[self.id];
-
-        memory.value.clone()
+impl ToPy for Memory {
+    fn to_py(&self, py: Python) -> Py<PyAny> {
+        self.value.clone_ref(py)
     }
 }
 
 impl Memory {
+    #[allow(unused)] // FIXME
     /// Construct a memory from an exported memory object
-    pub(crate) fn from_exported_memory<T>(
-        store: &mut StoreInner<T>,
-        value: JsValue,
+    pub(crate) fn from_exported_memory(
+        value: &PyAny,
         ty: MemoryType,
-    ) -> Option<Self> {
-        let memory: &WebAssembly::Memory = value.dyn_ref()?;
+    ) -> Result<Option<Self>, PyErr> {
+        let py = value.py();
 
-        Some(store.insert_memory(MemoryInner {
-            value: memory.clone(),
+        if !instanceof(py, value, web_assembly_memory(py)?)? {
+            return Ok(None);
+        }
+
+        Ok(Some(Self {
+            value: value.into_py(py),
             ty,
         }))
     }
 }
 
-impl WasmMemory<Engine> for Memory {
-    fn new(mut ctx: impl AsContextMut<Engine>, ty: MemoryType) -> anyhow::Result<Self> {
-        let desc = Object::new();
-        Reflect::set(&desc, &"initial".into(), &ty.initial_pages().into()).unwrap();
-        if let Some(maximum) = ty.maximum_pages() {
-            Reflect::set(&desc, &"maximum".into(), &maximum.into()).unwrap();
-        }
-
-        let memory = WebAssembly::Memory::new(&desc).map_err(JsErrorMsg::from)?;
-
-        let ctx: &mut StoreInner<_> = &mut *ctx.as_context_mut();
-
-        Ok(ctx.insert_memory(MemoryInner { value: memory, ty }))
-    }
-
-    fn ty(&self, ctx: impl AsContext<Engine>) -> MemoryType {
-        ctx.as_context().memories[self.id].ty
-    }
-
-    fn grow(&self, mut ctx: impl AsContextMut<Engine>, additional: u32) -> anyhow::Result<u32> {
-        let ctx: &mut StoreInner<_> = &mut *ctx.as_context_mut();
-
-        let inner = &mut ctx.memories[self.id];
-        Ok(inner.value.grow(additional))
-    }
-
-    fn current_pages(&self, _: impl AsContext<Engine>) -> u32 {
-        unimplemented!()
-    }
-
-    fn read(
-        &self,
-        ctx: impl AsContext<Engine>,
-        offset: usize,
-        buffer: &mut [u8],
-    ) -> anyhow::Result<()> {
-        let ctx: &StoreInner<_> = &*ctx.as_context();
-        let memory = &ctx.memories[self.id];
-
-        memory
-            .as_uint8array(offset as _, buffer.len() as _)
-            .copy_to(buffer);
-
-        Ok(())
-    }
-
-    fn write(
-        &self,
-        mut ctx: impl AsContextMut<Engine>,
-        offset: usize,
-        buffer: &[u8],
-    ) -> anyhow::Result<()> {
-        let ctx: &mut StoreInner<_> = &mut *ctx.as_context_mut();
-
-        let inner = &mut ctx.memories[self.id];
-        let dst = inner.as_uint8array(offset as _, buffer.len() as _);
-
-        #[cfg(feature = "tracing")]
-        tracing::debug!("writing {buffer:?} into guest");
-        dst.copy_from(buffer);
-
-        Ok(())
-    }
+fn web_assembly_memory(py: Python) -> Result<&PyAny, PyErr> {
+    py.import(intern!(py, "js"))?
+        .getattr(intern!(py, "WebAssembly"))?
+        .getattr(intern!(py, "Memory"))
 }

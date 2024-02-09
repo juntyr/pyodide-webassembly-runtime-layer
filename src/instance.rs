@@ -7,7 +7,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use wasm_runtime_layer::backend::{Export, Extern, Imports, WasmInstance};
 
 use crate::{
-    conversion::ToStoredJs, module::ParsedModule, Engine, Func, Global, JsErrorMsg, Memory, Module,
+    conversion::ToStoredJs, module::ParsedModule, Engine, Func, Global, JsErrorMsg, Module,
     StoreInner,
 };
 
@@ -209,14 +209,15 @@ fn process_exports<T>(
                         // Extern::Table(table)
                         todo!() // FIXME
                     } else if value.is_instance_of::<WebAssembly::Memory>() {
-                        let memory = Memory::from_exported_memory(
-                            store,
-                            value,
-                            signature.try_into_memory().unwrap(),
-                        )
-                        .unwrap();
+                        // let memory = Memory::from_exported_memory(
+                        //     store,
+                        //     value,
+                        //     signature.try_into_memory().unwrap(),
+                        // )
+                        // .unwrap();
 
-                        Extern::Memory(memory)
+                        // Extern::Memory(memory)
+                        todo!() // FIXME
                     } else if value.is_instance_of::<WebAssembly::Global>() {
                         let global = Global::from_exported_global(
                             store,

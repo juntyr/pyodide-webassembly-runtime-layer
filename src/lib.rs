@@ -376,8 +376,8 @@ impl ToStoredJs for Extern<Engine> {
     fn to_stored_js<T>(&self, store: &StoreInner<T>) -> JsValue {
         match self {
             Extern::Global(v) => v.to_stored_js(store).into(),
-            Extern::Table(_v) => todo!(), // FIXME
-            Extern::Memory(v) => v.to_stored_js(store).into(),
+            Extern::Table(_v) => todo!(),  // FIXME
+            Extern::Memory(_v) => todo!(), // FIXME
             Extern::Func(v) => v.to_stored_js(store).into(),
         }
     }
