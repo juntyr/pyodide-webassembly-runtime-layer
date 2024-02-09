@@ -1,13 +1,17 @@
+use std::{any::TypeId, marker::PhantomData};
+
 use anyhow::Context;
 use js_sys::{Array, Function};
+use pyo3::{intern, prelude::*, types::IntoPyDict, types::PyTuple};
 use wasm_bindgen::{closure::Closure, JsCast, JsValue};
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, Value, WasmFunc},
+    backend::{AsContext, AsContextMut, Value, WasmFunc, WasmStoreContext},
     FuncType,
 };
 
 use crate::{
-    conversion::ToStoredJs, DropResource, Engine, JsErrorMsg, StoreContextMut, StoreInner, ValueExt,
+    conversion::{ToPy, ToStoredJs},
+    DropResource, Engine, JsErrorMsg, StoreContextMut, StoreInner, ValueExt,
 };
 
 /// A bound function
@@ -15,6 +19,267 @@ use crate::{
 pub struct Func {
     /// Index
     pub(crate) id: usize,
+}
+
+/// A bound function
+#[derive(Debug, Clone)]
+pub struct FuncV2 {
+    /// The inner function
+    pub(crate) func: Py<PyAny>,
+    /// The function signature
+    ty: FuncType,
+    user_state: Option<TypeId>,
+}
+
+impl WasmFunc<Engine> for FuncV2 {
+    fn new<T>(
+        mut ctx: impl AsContextMut<Engine, UserState = T>,
+        ty: FuncType,
+        func: impl 'static
+            + Send
+            + Sync
+            + Fn(StoreContextMut<T>, &[Value<Engine>], &mut [Value<Engine>]) -> anyhow::Result<()>,
+    ) -> Self {
+        Python::with_gil(|py| -> Result<Self, PyErr> {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Func::new").entered();
+
+            let store: StoreContextMut<_> = ctx.as_context_mut();
+
+            let func = Box::new(|args: &PyTuple, _ctx: &mut PyStoreContextMut| {
+                let py = args.py();
+                Ok(PyTuple::empty(py).into_py(py))
+            });
+
+            let func = Py::new(py, PyFunc { func })?;
+
+            Ok(Self {
+                func: func.into_ref(py).into_py(py),
+                ty,
+                user_state: Some(non_static_type_id(store.data())),
+            })
+        })
+        .unwrap()
+
+        // let mut ctx: StoreContextMut<_> = ctx.as_context_mut();
+
+        // // Keep a reference to the store to calling context to reconstruct it later during export
+        // // call.
+        // //
+        // // The allocated closure which uses this pointer is stored in the store itself, and as such
+        // // dropping the store will also drop and prevent any further use of this pointer.
+        // //
+        // // The pointer itself is allocated on the stack and will *never* be moved during the entire
+        // // lifetime of the store.
+        // //
+        // // See: [`crate::web::store::Store`] for more details of why this is done this way.
+        // let store_ptr = ctx.as_ptr();
+
+        // // Remove `T` from this pointer and untie the lifetime.
+        // //
+        // // Lifetime is enforced by the closured storage in the store, and Store is guaranteed to
+        // // live as long as this closure
+        // let store_ptr = store_ptr as *mut ();
+
+        // let mut res = vec![Value::I32(0); ty.results().len()];
+
+        // let mut func = {
+        //     move |mut store: StoreContextMut<T>, _ty: &FuncType, args: &[Value<Engine>]| {
+        //         #[cfg(feature = "tracing")]
+        //         let _span =
+        //             tracing::debug_span!("call_host", name = _ty.name.as_deref(), ?args).entered();
+
+        //         match func(store.as_context_mut(), args, &mut res) {
+        //             Ok(()) => {
+        //                 #[cfg(feature = "tracing")]
+        //                 tracing::debug!(?res, "result");
+        //             }
+        //             Err(err) => {
+        //                 #[cfg(feature = "tracing")]
+        //                 tracing::error!("{err:?}");
+        //                 return Err(err);
+        //             }
+        //         };
+
+        //         let results = match &res[..] {
+        //             [] => JsValue::UNDEFINED,
+        //             [res] => res.to_stored_js(&*store),
+        //             res => res
+        //                 .iter()
+        //                 .map(|v| v.to_stored_js(&*store))
+        //                 .collect::<Array>()
+        //                 .into(),
+        //         };
+
+        //         anyhow::Ok(results)
+        //     }
+        // };
+
+        // let (resource, func) = match ty.params().len() {
+        //     0 => func_wrapper!(store_ptr, ty, func,),
+        //     1 => func_wrapper!(store_ptr, ty, func, 0 => a),
+        //     2 => func_wrapper!(store_ptr, ty, func, 0 => a, 1 => b),
+        //     3 => func_wrapper!(store_ptr, ty, func, 0 => a, 1 => b, 2 => c),
+        //     4 => func_wrapper!(store_ptr, ty, func, 0 => a, 1 => b, 2 => c, 3 => d),
+        //     5 => func_wrapper!(store_ptr, ty, func, 0 => a, 1 => b, 2 => c, 3 => d, 4 => e),
+        //     6 => func_wrapper!(store_ptr, ty, func, 0 => a, 1 => b, 2 => c, 3 => d, 4 => e, 5 => f),
+        //     7 => {
+        //         func_wrapper!(store_ptr, ty, func, 0 => a, 1 => b, 2 => c, 3 => d, 4 => e, 5 => f, 6 => g)
+        //     }
+        //     8 => {
+        //         func_wrapper!(store_ptr, ty, func, 0 => a, 1 => b, 2 => c, 3 => d, 4 => e, 5 => f, 6 => g, 7 => h)
+        //     }
+        //     v => {
+        //         unimplemented!("exported functions of {v} arguments are not supported")
+        //     }
+        // };
+
+        // let func = ctx.insert_func(FuncInner { func, ty });
+
+        // #[cfg(feature = "tracing")]
+        // tracing::debug!(id = func.id, "func");
+        // ctx.insert_drop_resource(DropResource::new(resource));
+
+        // func
+    }
+
+    fn ty(&self, _ctx: impl AsContext<Engine>) -> FuncType {
+        self.ty.clone()
+    }
+
+    fn call<T>(
+        &self,
+        mut ctx: impl AsContextMut<Engine>,
+        args: &[Value<Engine>],
+        results: &mut [Value<Engine>],
+    ) -> anyhow::Result<()> {
+        Python::with_gil(|py| {
+            let mut store: StoreContextMut<_> = ctx.as_context_mut();
+
+            let func = self.func.as_ref(py);
+
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("call_guest", ?args, ?self.ty).entered();
+
+            // https://webassembly.github.io/spec/js-api/#exported-function-exotic-objects
+            assert_eq!(self.ty.params().len(), args.len());
+            assert_eq!(self.ty.results().len(), results.len());
+
+            let args = PyTuple::new(py, args.iter().map(|arg| arg.to_py(py)));
+
+            let kwargs = match self.user_state {
+                None => None,
+                Some(user_state) => {
+                    assert_eq!(user_state, non_static_type_id(store.data()));
+
+                    let store = PyStoreContextMut {
+                        ptr: (&mut store as *mut StoreContextMut<_>) as *mut StoreContextMut<()>,
+                        user_state,
+                    };
+
+                    Some([(intern!(py, "ctx"), Py::new(py, store)?)].into_py_dict(py))
+                }
+            };
+
+            let res: &PyTuple = func.call(args, kwargs)?.extract()?;
+
+            #[cfg(feature = "tracing")]
+            tracing::debug!(?res,ty=?self.ty);
+
+            // https://webassembly.github.io/spec/js-api/#exported-function-exotic-objects
+            assert_eq!(self.ty.results().len(), res.len());
+
+            for ((ty, result), value) in self
+                .ty
+                .results()
+                .iter()
+                .zip(results.iter_mut())
+                .zip(res.iter())
+            {
+                *result = Value::from_py_typed(&mut store, ty, value)?;
+            }
+
+            Ok(())
+        })
+    }
+}
+
+impl ToPy for FuncV2 {
+    fn to_py(&self, py: Python) -> Py<PyAny> {
+        self.func.clone_ref(py)
+    }
+}
+
+impl FuncV2 {
+    #[allow(unused)] // FIXME
+    /// Creates a new function from a Python value
+    pub(crate) fn from_exported_function(
+        value: &PyAny,
+        signature: FuncType,
+    ) -> Result<Option<Self>, PyErr> {
+        let py = value.py();
+
+        if !value.is_callable() {
+            return Ok(None);
+        }
+
+        Ok(Some(Self {
+            func: value.into_py(py),
+            ty: signature,
+            user_state: None,
+        }))
+    }
+}
+
+#[pyclass]
+struct PyStoreContextMut {
+    ptr: *mut StoreContextMut<'static, ()>,
+    user_state: TypeId,
+}
+
+unsafe impl Send for PyStoreContextMut {}
+unsafe impl Sync for PyStoreContextMut {}
+
+#[pyclass(frozen)]
+struct PyFunc {
+    func: Box<
+        dyn 'static
+            + Send
+            + Sync
+            + Fn(&PyTuple, &mut PyStoreContextMut) -> Result<Py<PyTuple>, PyErr>,
+    >,
+}
+
+#[pymethods]
+impl PyFunc {
+    #[pyo3(signature = (*args, ctx))]
+    fn __call__(&self, args: &PyTuple, ctx: &mut PyStoreContextMut) -> Result<Py<PyTuple>, PyErr> {
+        (self.func)(args, ctx)
+    }
+}
+
+// Courtesy of David Tolnay:
+// https://github.com/rust-lang/rust/issues/41875#issuecomment-317292888
+fn non_static_type_id<T: ?Sized>(_x: &T) -> TypeId {
+    trait NonStaticAny {
+        fn get_type_id(&self) -> TypeId
+        where
+            Self: 'static;
+    }
+
+    impl<T: ?Sized> NonStaticAny for PhantomData<T> {
+        fn get_type_id(&self) -> TypeId
+        where
+            Self: 'static,
+        {
+            TypeId::of::<T>()
+        }
+    }
+
+    let phantom_data = PhantomData::<T>;
+    NonStaticAny::get_type_id(unsafe {
+        core::mem::transmute::<&dyn NonStaticAny, &(dyn NonStaticAny + 'static)>(&phantom_data)
+    })
 }
 
 /// Internal represenation of [`Func`]
@@ -135,8 +400,7 @@ impl WasmFunc<Engine> for Func {
         let mut func = {
             move |mut store: StoreContextMut<T>, _ty: &FuncType, args: &[Value<Engine>]| {
                 #[cfg(feature = "tracing")]
-                let _span =
-                    tracing::debug_span!("call_host", name = _ty.name.as_deref(), ?args).entered();
+                let _span = tracing::debug_span!("call_host", ?args, ?_ty).entered();
 
                 match func(store.as_context_mut(), args, &mut res) {
                     Ok(()) => {
@@ -207,8 +471,7 @@ impl WasmFunc<Engine> for Func {
         let ty = inner.ty.clone();
 
         #[cfg(feature = "tracing")]
-        let _span =
-            tracing::debug_span!("call_guest", ?args, name=ty.name.as_deref(), %ty).entered();
+        let _span = tracing::debug_span!("call_guest", ?args, ?ty).entered();
 
         let args = args.iter().map(|v| v.to_stored_js(ctx)).collect::<Array>();
 

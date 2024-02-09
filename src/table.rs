@@ -125,7 +125,7 @@ impl Table {
     /// Creates a new table from a Python value
     pub(crate) fn from_stored_py(table: &PyAny, ty: TableType) -> Result<Option<Self>, PyErr> {
         #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Table::from_py", ?value).entered();
+        let _span = tracing::trace_span!("Table::from_py", ?table).entered();
 
         let py = table.py();
 
