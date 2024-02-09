@@ -2,6 +2,7 @@
 name = "pyodide_wasm_runtime_layer"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.76"
 license = "MIT OR Apache-2.0"
 authors = [
     "Juniper Tyree <juniper.tyree@helsinki.fi>",
@@ -20,7 +21,7 @@ WebAssembly runtime, exposed through Pyodide.
 anyhow = { version = "1.0", default-features = false, features = [ "std" ] }
 fxhash = { version = "0.2", default-features = false }
 js-sys = { version = "0.3", default-features = false }
-pyo3 = { version = "0.20", default-features = false, features = ["macros"] }
+pyo3 = { version = "0.20", default-features = false, features = ["anyhow", "macros"] }
 slab = { version = "0.4", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 wasmparser = { version = "0.121", default-features = false }

@@ -8,7 +8,7 @@ use wasm_runtime_layer::backend::{
     AsContext, AsContextMut, WasmEngine, WasmStore, WasmStoreContext, WasmStoreContextMut,
 };
 
-use crate::{func::FuncInner, instance::InstanceInner, DropResource, Engine, Func, Instance};
+use crate::{instance::InstanceInner, Engine, Instance};
 
 /// Owns all the data for the wasm module
 ///
@@ -94,8 +94,6 @@ impl<T> WasmStore<T, Engine> for Store<T> {
         Self::from_inner(Box::new(StoreInner {
             engine: engine.clone(),
             instances: Slab::new(),
-            funcs: Slab::new(),
-            drop_resources: Vec::new(),
             data,
         }))
     }
@@ -155,38 +153,16 @@ pub struct StoreInner<T> {
     pub(crate) engine: Engine,
     /// Instances are not Send + Sync
     pub(crate) instances: Slab<InstanceInner>,
-    /// Modules are not Send + Sync
-    pub(crate) funcs: Slab<FuncInner>,
     /// The user data
     pub(crate) data: T,
-
-    /// **Note**: append ONLY. No resource must be dropped or removed from this vector as long as
-    /// the store is still alive.
-    ///
-    /// Dropping a resource too early is safe, but the resulting behavior is not specifed and may
-    /// include incorrect results, memory leaks or panics, etc.
-    drop_resources: Vec<DropResource>,
 }
 
 impl<T> StoreInner<T> {
-    /// Inserts a new function and returns its id
-    pub(crate) fn insert_func(&mut self, func: FuncInner) -> Func {
-        Func {
-            id: self.funcs.insert(func),
-        }
-    }
-
     /// Inserts a new instance and returns its id
     pub(crate) fn insert_instance(&mut self, instance: InstanceInner) -> Instance {
         Instance {
             id: self.instances.insert(instance),
         }
-    }
-
-    /// Tie the lifetime of a reference or other value to the lifetime of the store using
-    /// [`DropResource`].
-    pub(crate) fn insert_drop_resource(&mut self, value: DropResource) {
-        self.drop_resources.push(value)
     }
 }
 
@@ -218,11 +194,6 @@ pub struct StoreContextMut<'a, T: 'a> {
 }
 
 impl<'a, T: 'a> StoreContextMut<'a, T> {
-    /// Returns a pointer to the inner store
-    pub(crate) fn as_ptr(&mut self) -> *mut StoreInner<T> {
-        self.store as *mut _
-    }
-
     /// Provides a mutable store context from a reference
     pub(crate) fn from_ref(store: &'a mut StoreInner<T>) -> Self {
         Self { store }

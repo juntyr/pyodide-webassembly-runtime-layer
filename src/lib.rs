@@ -98,46 +98,10 @@ impl WasmEngine for Engine {
     type Table = Table;
 }
 
-/// Handle used to retain the lifetime of Js passed objects and drop them at an appropriate time.
-///
-/// Most commonly this is to ensure a closure with captures does not get dropped by Rust while a
-/// reference to it exists in the world of Js.
-#[derive(Debug)]
-pub(crate) struct DropResource(Box<dyn std::fmt::Debug>);
-
-impl DropResource {
-    /// Creates a new drop resource from anything that implements `std::fmt::Debug`
-    ///
-    /// In general, any trait can be used here, but `std::fmt::Debug` is the most common and allows
-    /// easy introspection of the values being held on to.
-    pub fn new(value: impl 'static + std::fmt::Debug) -> Self {
-        Self(Box::new(value))
-    }
-}
-
 #[derive(Default, Debug, Clone)]
 /// Runtime for WebAssembly
 pub struct Engine {
     _private: (),
-}
-
-impl ToStoredJs for Value<Engine> {
-    type Repr = JsValue;
-    /// Convert the value enum to a JavaScript value
-    fn to_stored_js<T>(&self, store: &StoreInner<T>) -> JsValue {
-        match self {
-            &Value::I32(v) => v.into(),
-            &Value::I64(v) => v.into(),
-            &Value::F32(v) => v.into(),
-            &Value::F64(v) => v.into(),
-            Value::FuncRef(Some(func)) => {
-                let v: &JsValue = store.funcs[func.id].func.as_ref();
-                v.clone()
-            }
-            Value::FuncRef(None) => JsValue::NULL,
-            Value::ExternRef(_) => todo!(),
-        }
-    }
 }
 
 impl ToPy for Value<Engine> {
@@ -147,10 +111,7 @@ impl ToPy for Value<Engine> {
             Value::I64(v) => v.to_object(py),
             Value::F32(v) => v.to_object(py),
             Value::F64(v) => v.to_object(py),
-            Value::FuncRef(Some(_func)) => {
-                // FIXME: missing implementation
-                todo!()
-            }
+            Value::FuncRef(Some(func)) => func.to_py(py),
             Value::FuncRef(None) => py.None(),
             Value::ExternRef(_) => todo!(),
         }
@@ -202,12 +163,12 @@ impl FromStoredJs for Value<Engine> {
 
 impl ToStoredJs for Extern<Engine> {
     type Repr = JsValue;
-    fn to_stored_js<T>(&self, store: &StoreInner<T>) -> JsValue {
+    fn to_stored_js<T>(&self, _store: &StoreInner<T>) -> JsValue {
         match self {
             Extern::Global(_v) => todo!(), // FIXME
             Extern::Table(_v) => todo!(),  // FIXME
             Extern::Memory(_v) => todo!(), // FIXME
-            Extern::Func(v) => v.to_stored_js(store).into(),
+            Extern::Func(_v) => todo!(),   // FIXME
         }
     }
 }

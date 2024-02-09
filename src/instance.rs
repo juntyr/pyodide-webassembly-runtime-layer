@@ -6,9 +6,7 @@ use js_sys::{JsString, Object, Reflect, WebAssembly};
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_runtime_layer::backend::{Export, Extern, Imports, WasmInstance};
 
-use crate::{
-    conversion::ToStoredJs, module::ParsedModule, Engine, Func, JsErrorMsg, Module, StoreInner,
-};
+use crate::{conversion::ToStoredJs, module::ParsedModule, Engine, JsErrorMsg, Module, StoreInner};
 
 /// A WebAssembly Instance.
 #[derive(Debug, Clone)]
@@ -129,7 +127,7 @@ fn create_imports_object<T>(store: &StoreInner<T>, imports: &Imports<Engine>) ->
 
 /// Processes a wasm module's exports into a hashmap
 fn process_exports<T>(
-    store: &mut StoreInner<T>,
+    _store: &mut StoreInner<T>,
     exports: JsValue,
     parsed: &ParsedModule,
 ) -> anyhow::Result<FxHashMap<String, Extern<Engine>>> {
@@ -157,33 +155,36 @@ fn process_exports<T>(
             #[cfg(feature = "tracing")]
             let _span = tracing::trace_span!("process_export", ?name, ?value).entered();
 
-            let signature = parsed.exports.get(&name).expect("export signature").clone();
+            let _signature = parsed.exports.get(&name).expect("export signature").clone();
 
-            let ext = match &value
+            #[allow(clippy::let_unit_value)] // FIXME
+            let _ext = match &value
                 .js_typeof()
                 .as_string()
                 .expect("typeof returns a string")[..]
             {
                 "function" => {
-                    let func = Func::from_exported_function(
-                        store,
-                        value,
-                        signature.try_into_func().unwrap(),
-                    )
-                    .unwrap();
+                    // let func = Func::from_exported_function(
+                    //     store,
+                    //     value,
+                    //     signature.try_into_func().unwrap(),
+                    // )
+                    // .unwrap();
 
-                    Extern::Func(func)
+                    // Extern::Func(func)
+                    todo!() // FIXME
                 }
                 "object" => {
                     if value.is_instance_of::<js_sys::Function>() {
-                        let func = Func::from_exported_function(
-                            store,
-                            value,
-                            signature.try_into_func().unwrap(),
-                        )
-                        .unwrap();
+                        // let func = Func::from_exported_function(
+                        //     store,
+                        //     value,
+                        //     signature.try_into_func().unwrap(),
+                        // )
+                        // .unwrap();
 
-                        Extern::Func(func)
+                        // Extern::Func(func)
+                        todo!() // FIXME
                     } else if value.is_instance_of::<WebAssembly::Table>() {
                         // let table = Table::from_stored_js(
                         //     store,
@@ -223,7 +224,7 @@ fn process_exports<T>(
                 _ => panic!("Unsupported export type {value:?}"),
             };
 
-            Ok((name, ext))
+            // Ok((name, ext))
         })
         .collect()
 }
