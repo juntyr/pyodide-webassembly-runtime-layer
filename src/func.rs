@@ -82,9 +82,15 @@ impl WasmFunc<Engine> for Func {
                     }
                 }
 
-                let results = PyTuple::new(py, results.into_iter().map(|res| res.to_py(py)));
+                let results = match results.as_slice() {
+                    [] => py.None(),
+                    [res] => res.to_py(py),
+                    results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))
+                        .as_ref()
+                        .into_py(py),
+                };
 
-                Ok(results.into_py(py))
+                Ok(results)
             });
 
             let func = Py::new(py, PyFunc { func })?;
@@ -216,14 +222,14 @@ struct PyFunc {
         dyn 'static
             + Send
             + Sync
-            + Fn(&PyTuple, &mut PyStoreContextMut) -> Result<Py<PyTuple>, PyErr>,
+            + Fn(&PyTuple, &mut PyStoreContextMut) -> Result<Py<PyAny>, PyErr>,
     >,
 }
 
 #[pymethods]
 impl PyFunc {
     #[pyo3(signature = (*args, ctx))]
-    fn __call__(&self, args: &PyTuple, ctx: &mut PyStoreContextMut) -> Result<Py<PyTuple>, PyErr> {
+    fn __call__(&self, args: &PyTuple, ctx: &mut PyStoreContextMut) -> Result<Py<PyAny>, PyErr> {
         (self.func)(args, ctx)
     }
 }
