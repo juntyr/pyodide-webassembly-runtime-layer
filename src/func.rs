@@ -144,7 +144,7 @@ impl WasmFunc<Engine> for Func {
             let res = func.call(args, kwargs)?;
 
             #[cfg(feature = "tracing")]
-            tracing::debug!(?res,ty=?self.ty);
+            tracing::debug!(res, ?self.ty);
 
             match (self.ty.results(), results) {
                 ([], []) => (),

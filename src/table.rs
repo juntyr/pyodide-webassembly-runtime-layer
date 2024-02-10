@@ -126,7 +126,7 @@ impl Table {
     /// Creates a new table from a Python value
     pub(crate) fn from_exported_table(value: &PyAny, ty: TableType) -> anyhow::Result<Self> {
         #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Table::from_py", ?value).entered();
+        let _span = tracing::trace_span!("Table::from_py", value).entered();
 
         let py = value.py();
 

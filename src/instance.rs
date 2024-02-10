@@ -112,7 +112,7 @@ fn process_exports(
     let py = exports.py();
 
     #[cfg(feature = "tracing")]
-    let _span = tracing::debug_span!("process_exports", ?exports).entered();
+    let _span = tracing::debug_span!("process_exports", exports).entered();
 
     exports
         .call_method0(intern!(py, "object_entries"))?
@@ -121,7 +121,7 @@ fn process_exports(
             let (name, value): (String, &PyAny) = entry?.extract()?;
 
             #[cfg(feature = "tracing")]
-            let _span = tracing::trace_span!("process_export", ?name, ?value).entered();
+            let _span = tracing::trace_span!("process_export", ?name, value).entered();
 
             let signature = module.get_export(&name).expect("export signature");
 
