@@ -21,6 +21,8 @@ pub struct Global {
 impl WasmGlobal<Engine> for Global {
     fn new(_ctx: impl AsContextMut<Engine>, value: Value<Engine>, mutable: bool) -> Self {
         Python::with_gil(|py| -> Result<Self, PyErr> {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Global::new", ?value, mutable).entered();
             let ty = GlobalType::new(ValueExt::ty(&value), mutable);
 
             let desc = PyDict::new(py);
@@ -57,6 +59,8 @@ impl WasmGlobal<Engine> for Global {
 
         Python::with_gil(|py| {
             let global = self.value.as_ref(py);
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Global::set", %global, ?self.ty, ?new_value).entered();
 
             // value is passed to WebAssembly global, so it must be turned into JS
             let new_value = new_value.to_py_js(py)?;
@@ -70,6 +74,8 @@ impl WasmGlobal<Engine> for Global {
     fn get(&self, _ctx: impl AsContextMut<Engine>) -> Value<Engine> {
         Python::with_gil(|py| {
             let global = self.value.as_ref(py);
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Global::get", %global, ?self.ty).entered();
 
             let value = global.getattr(intern!(py, "value"))?;
 
@@ -81,6 +87,8 @@ impl WasmGlobal<Engine> for Global {
 
 impl ToPy for Global {
     fn to_py(&self, py: Python) -> Py<PyAny> {
+        #[cfg(feature = "tracing")]
+        let _span = tracing::debug_span!("Global::to_py", %self.value, ?self.ty).entered();
         self.value.clone_ref(py)
     }
 }
@@ -96,6 +104,9 @@ impl Global {
         if !instanceof(py, value, web_assembly_global(py)?)? {
             anyhow::bail!("expected WebAssembly.Global but found {value:?}");
         }
+
+        #[cfg(feature = "tracing")]
+        let _span = tracing::debug_span!("Global::from_exported_global", %value, ?signature).entered();
 
         Ok(Self {
             value: value.into_py(py),

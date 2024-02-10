@@ -12,7 +12,7 @@ use wasm_runtime_layer::{
 };
 
 use crate::{
-    conversion::{ToPy, ValueExt},
+    conversion::{py_to_js_proxy, ToPy, ValueExt},
     Engine, StoreContextMut,
 };
 
@@ -196,7 +196,16 @@ impl WasmFunc<Engine> for Func {
 
 impl ToPy for Func {
     fn to_py(&self, py: Python) -> Py<PyAny> {
+        #[cfg(feature = "tracing")]
+        let _span = tracing::debug_span!("Func::to_py", %self.func, ?self.ty).entered();
         self.func.clone_ref(py)
+    }
+
+    fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
+        #[cfg(feature = "tracing")]
+        let _span = tracing::debug_span!("Func::to_py_js", %self.func, ?self.ty).entered();
+        let func = py_to_js_proxy(py, self.func.as_ref(py))?;
+        Ok(func.into_py(py))
     }
 }
 
@@ -213,6 +222,9 @@ impl Func {
                 "expected WebAssembly.Function but found {value:?} which is not callable"
             );
         }
+
+        #[cfg(feature = "tracing")]
+        let _span = tracing::debug_span!("Func::from_exported_function", %value, ?signature).entered();
 
         Ok(Self {
             func: value.into_py(py),

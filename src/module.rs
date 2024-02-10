@@ -22,6 +22,9 @@ pub struct Module {
 impl WasmModule<Engine> for Module {
     fn new(_engine: &Engine, mut stream: impl std::io::Read) -> anyhow::Result<Self> {
         Python::with_gil(|py| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Module::new").entered();
+
             let mut bytes = Vec::new();
             stream
                 .read_to_end(&mut bytes)

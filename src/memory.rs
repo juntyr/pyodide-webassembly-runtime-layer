@@ -25,6 +25,9 @@ pub struct Memory {
 impl WasmMemory<Engine> for Memory {
     fn new(_ctx: impl AsContextMut<Engine>, ty: MemoryType) -> anyhow::Result<Self> {
         Python::with_gil(|py| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Memory::new", ?ty).entered();
+
             let desc = PyDict::new(py);
             desc.set_item(intern!(py, "initial"), ty.initial_pages())?;
             if let Some(maximum) = ty.maximum_pages() {
@@ -51,6 +54,9 @@ impl WasmMemory<Engine> for Memory {
         Python::with_gil(|py| {
             let memory = self.value.as_ref(py);
 
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Memory::grow", %memory, ?self.ty, additional).entered();
+
             let old_pages = memory
                 .call_method1(intern!(py, "grow"), (additional,))?
                 .extract()?;
@@ -64,6 +70,9 @@ impl WasmMemory<Engine> for Memory {
 
         Python::with_gil(|py| -> Result<u32, PyErr> {
             let memory = self.value.as_ref(py);
+
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Memory::current_pages", %memory, ?self.ty).entered();
 
             let byte_len: u64 = memory
                 .getattr(intern!(py, "buffer"))?
@@ -84,6 +93,9 @@ impl WasmMemory<Engine> for Memory {
     ) -> anyhow::Result<()> {
         Python::with_gil(|py| {
             let memory = self.value.as_ref(py);
+
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Memory::read", %memory, ?self.ty, offset, len = buffer.len()).entered();
 
             let memory = memory.getattr(intern!(py, "buffer"))?;
             let memory = py
@@ -107,6 +119,9 @@ impl WasmMemory<Engine> for Memory {
         Python::with_gil(|py| {
             let memory = self.value.as_ref(py);
 
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Memory::write", %memory, ?self.ty, offset, ?buffer).entered();
+
             let memory = memory.getattr(intern!(py, "buffer"))?;
             let memory = py
                 .import(intern!(py, "js"))?
@@ -125,6 +140,9 @@ impl WasmMemory<Engine> for Memory {
 
 impl ToPy for Memory {
     fn to_py(&self, py: Python) -> Py<PyAny> {
+        #[cfg(feature = "tracing")]
+        let _span = tracing::debug_span!("Memory::to_py", %self.value, ?self.ty).entered();
+
         self.value.clone_ref(py)
     }
 }
@@ -137,6 +155,9 @@ impl Memory {
         if !instanceof(py, value, web_assembly_memory(py)?)? {
             anyhow::bail!("expected WebAssembly.Memory but found {value:?}");
         }
+
+        #[cfg(feature = "tracing")]
+        let _span = tracing::debug_span!("Memory::from_exported_memory", %value, ?ty).entered();
 
         Ok(Self {
             value: value.into_py(py),

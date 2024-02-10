@@ -59,6 +59,10 @@ impl WasmTable<Engine> for Table {
     fn size(&self, _ctx: impl AsContext<Engine>) -> u32 {
         Python::with_gil(|py| -> Result<u32, PyErr> {
             let table = self.table.as_ref(py);
+
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Table::size", %table, ?self.ty).entered();
+
             table.getattr(intern!(py, "length"))?.extract()
         })
         .unwrap()
@@ -72,10 +76,13 @@ impl WasmTable<Engine> for Table {
         init: Value<Engine>,
     ) -> anyhow::Result<u32> {
         Python::with_gil(|py| {
+            let table = self.table.as_ref(py);
+
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Table::grow", %table, ?self.ty, delta, ?init).entered();
+
             // init is passed to WebAssembly table, so it must be turned into JS
             let init = init.to_py_js(py)?;
-
-            let table = self.table.as_ref(py);
 
             let old_len = table
                 .call_method1(intern!(py, "grow"), (delta, init))?
@@ -89,6 +96,9 @@ impl WasmTable<Engine> for Table {
     fn get(&self, _ctx: impl AsContextMut<Engine>, index: u32) -> Option<Value<Engine>> {
         Python::with_gil(|py| {
             let table = self.table.as_ref(py);
+
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Table::get", %table, ?self.ty, index).entered();
 
             let value = table.call_method1(intern!(py, "get"), (index,)).ok()?;
 
@@ -104,10 +114,13 @@ impl WasmTable<Engine> for Table {
         value: Value<Engine>,
     ) -> anyhow::Result<()> {
         Python::with_gil(|py| {
+            let table = self.table.as_ref(py);
+
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Table::set", %table, ?self.ty, index, ?value).entered();
+
             // value is passed to WebAssembly global, so it must be turned into JS
             let value = value.to_py_js(py)?;
-
-            let table = self.table.as_ref(py);
 
             table.call_method1(intern!(py, "set"), (index, value))?;
 
@@ -118,6 +131,9 @@ impl WasmTable<Engine> for Table {
 
 impl ToPy for Table {
     fn to_py(&self, py: Python) -> Py<PyAny> {
+        #[cfg(feature = "tracing")]
+        let _span = tracing::debug_span!("Table::to_py", %self.table, ?self.ty).entered();
+
         self.table.clone_ref(py)
     }
 }
@@ -125,14 +141,14 @@ impl ToPy for Table {
 impl Table {
     /// Creates a new table from a Python value
     pub(crate) fn from_exported_table(value: &PyAny, ty: TableType) -> anyhow::Result<Self> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Table::from_py", %value).entered();
-
         let py = value.py();
 
         if !instanceof(py, value, web_assembly_table(py)?)? {
             anyhow::bail!("expected WebAssembly.Table but found {value:?}");
         }
+
+        #[cfg(feature = "tracing")]
+        let _span = tracing::trace_span!("Table::from_exported_table", %value, ?ty).entered();
 
         let table_length: u32 = value.getattr(intern!(py, "length"))?.extract()?;
 
