@@ -1,5 +1,5 @@
 use wasm_runtime_layer::backend::{
-    AsContext, AsContextMut, WasmEngine, WasmStore, WasmStoreContext, WasmStoreContextMut,
+    AsContext, AsContextMut, WasmStore, WasmStoreContext, WasmStoreContextMut,
 };
 
 use crate::Engine;
@@ -104,7 +104,7 @@ impl<'a, T: 'a> WasmStoreContextMut<'a, T, Engine> for StoreContextMut<'a, T> {
 impl<'a, T: 'a> AsContext<Engine> for StoreContextMut<'a, T> {
     type UserState = T;
 
-    fn as_context(&self) -> <Engine as WasmEngine>::StoreContext<'_, T> {
+    fn as_context(&self) -> StoreContext<'_, T> {
         StoreContext { store: self.store }
     }
 }

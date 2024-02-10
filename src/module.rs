@@ -13,7 +13,6 @@ use crate::Engine;
 #[derive(Debug, Clone)]
 /// A WebAssembly Module
 pub struct Module {
-    #[allow(dead_code)] // FIXME
     /// The inner module
     module: Py<PyAny>,
     /// The parsed module, containing import and export signatures

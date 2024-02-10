@@ -5,7 +5,7 @@ use wasm_runtime_layer::{
 };
 
 use crate::{
-    conversion::{instanceof, ToPy, ValueTypeExt},
+    conversion::{instanceof, ToPy, ValueExt, ValueTypeExt},
     Engine,
 };
 
@@ -84,15 +84,14 @@ impl WasmTable<Engine> for Table {
     }
 
     /// Returns the table element value at `index`.
-    fn get(&self, _: impl AsContextMut<Engine>, _: u32) -> Option<Value<Engine>> {
-        // It is not possible to determine the type or signature of the value.
-        //
-        // To enable this we would need to cache and intern a unique id for each value to be able
-        // to reconcile the signature and existing Store value. This would also avoid duplicating
-        // values
-        #[cfg(feature = "tracing")]
-        tracing::error!("get is not implemented");
-        None
+    fn get(&self, _ctx: impl AsContextMut<Engine>, index: u32) -> Option<Value<Engine>> {
+        Python::with_gil(|py| {
+            let table = self.table.as_ref(py);
+
+            let value = table.call_method1(intern!(py, "get"), (index,)).ok()?;
+
+            Some(Value::from_py_typed(value, &self.ty.element()).unwrap())
+        })
     }
 
     /// Sets the value of this table at `index`.

@@ -17,9 +17,9 @@ use crate::{
 /// A WebAssembly Memory
 pub struct Memory {
     /// The memory value
-    pub value: Py<PyAny>,
+    value: Py<PyAny>,
     /// The memory type
-    pub ty: MemoryType,
+    ty: MemoryType,
 }
 
 impl WasmMemory<Engine> for Memory {
