@@ -115,7 +115,12 @@ impl WasmFunc<Engine> for Func {
             assert_eq!(self.ty.params().len(), args.len());
             assert_eq!(self.ty.results().len(), results.len());
 
-            let args = PyTuple::new(py, args.iter().map(|arg| arg.to_py(py)));
+            // call may be to a WebAssembly function, so args must be turned into JS
+            let args = args
+                .iter()
+                .map(|arg| arg.to_py_js(py))
+                .collect::<Result<Vec<_>, _>>()?;
+            let args = PyTuple::new(py, args);
 
             let kwargs = match self.user_state {
                 None => None,

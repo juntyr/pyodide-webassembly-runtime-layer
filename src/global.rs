@@ -5,7 +5,7 @@ use wasm_runtime_layer::{
 };
 
 use crate::{
-    conversion::{instanceof, ToPy, ValueExt, ValueTypeExt},
+    conversion::{instanceof, py_dict_to_js_object, ToPy, ValueExt, ValueTypeExt},
     Engine,
 };
 
@@ -29,8 +29,10 @@ impl WasmGlobal<Engine> for Global {
                 ValueExt::ty(&value).as_js_descriptor(),
             )?;
             desc.set_item(intern!(py, "mutable"), mutable)?;
+            let desc = py_dict_to_js_object(py, desc)?;
 
-            let value = value.to_py(py);
+            // value is passed to WebAssembly global, so it must be turned into JS
+            let value = value.to_py_js(py)?;
 
             let global = web_assembly_global(py)?
                 .getattr(intern!(py, "new"))?
@@ -56,7 +58,8 @@ impl WasmGlobal<Engine> for Global {
         Python::with_gil(|py| {
             let global = self.value.as_ref(py);
 
-            let new_value = new_value.to_py(py);
+            // value is passed to WebAssembly global, so it must be turned into JS
+            let new_value = new_value.to_py_js(py)?;
 
             global.setattr(intern!(py, "value"), new_value)?;
 

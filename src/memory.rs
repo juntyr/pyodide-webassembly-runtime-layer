@@ -9,7 +9,7 @@ use wasm_runtime_layer::{
 };
 
 use crate::{
-    conversion::{instanceof, ToPy},
+    conversion::{instanceof, py_dict_to_js_object, ToPy},
     Engine,
 };
 
@@ -27,10 +27,10 @@ impl WasmMemory<Engine> for Memory {
         Python::with_gil(|py| {
             let desc = PyDict::new(py);
             desc.set_item(intern!(py, "initial"), ty.initial_pages())?;
-
             if let Some(maximum) = ty.maximum_pages() {
                 desc.set_item(intern!(py, "maximum"), maximum)?;
             }
+            let desc = py_dict_to_js_object(py, desc)?;
 
             let memory = web_assembly_memory(py)?
                 .getattr(intern!(py, "new"))?

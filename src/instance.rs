@@ -7,7 +7,10 @@ use wasm_runtime_layer::{
     ExternType,
 };
 
-use crate::{conversion::ToPy, Engine, Func, Global, Memory, Module, Table};
+use crate::{
+    conversion::{py_dict_to_js_object, ToPy},
+    Engine, Func, Global, Memory, Module, Table,
+};
 
 /// A WebAssembly Instance
 #[derive(Debug, Clone)]
@@ -28,7 +31,7 @@ impl WasmInstance<Engine> for Instance {
             #[cfg(feature = "tracing")]
             let _span = tracing::debug_span!("Instance::new").entered();
 
-            let imports_object = create_imports_object(py, imports);
+            let imports_object = create_imports_object(py, imports)?;
 
             let instance = web_assembly_instance(py)?
                 .getattr(intern!(py, "new"))?
@@ -66,30 +69,39 @@ impl WasmInstance<Engine> for Instance {
 }
 
 /// Creates the js import map
-fn create_imports_object<'py>(py: Python<'py>, imports: &Imports<Engine>) -> &'py PyAny {
+fn create_imports_object<'py>(
+    py: Python<'py>,
+    imports: &Imports<Engine>,
+) -> Result<&'py PyAny, PyErr> {
     #[cfg(feature = "tracing")]
     let _span = tracing::debug_span!("process_imports").entered();
 
-    imports
+    let imports = imports
         .into_iter()
-        .map(|((module, name), import)| {
+        .map(|((module, name), import)| -> Result<_, PyErr> {
             #[cfg(feature = "tracing")]
             tracing::trace!(?module, ?name, ?import, "import");
-            let import = import.to_py(py);
+            // import is passed to WebAssembly instantiation, so it must be turned into JS
+            let import = import.to_py_js(py)?;
 
             #[cfg(feature = "tracing")]
             tracing::trace!(module, name, "export");
 
-            (module, (name, import))
+            Ok((module, (name, import)))
         })
-        .fold(BTreeMap::<String, Vec<_>>::new(), |mut acc, (m, value)| {
-            acc.entry(m).or_default().push(value);
-            acc
-        })
+        .try_fold(
+            BTreeMap::<String, Vec<_>>::new(),
+            |mut acc, elem| -> Result<_, PyErr> {
+                let (module, value) = elem?;
+                acc.entry(module).or_default().push(value);
+                Ok(acc)
+            },
+        )?
         .into_iter()
         .map(|(module, imports)| (module, imports.into_py_dict(py)))
-        .into_py_dict(py)
-        .as_ref()
+        .into_py_dict(py);
+
+    py_dict_to_js_object(py, imports)
 }
 
 /// Processes a wasm module's exports into a hashmap

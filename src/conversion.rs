@@ -1,4 +1,8 @@
-use pyo3::{intern, prelude::*};
+use pyo3::{
+    intern,
+    prelude::*,
+    types::{IntoPyDict, PyBool, PyDict},
+};
 use wasm_runtime_layer::{
     backend::{Extern, Value},
     ValueType,
@@ -10,6 +14,12 @@ use crate::Engine;
 pub trait ToPy {
     /// Convert this value to Python
     fn to_py(&self, py: Python) -> Py<PyAny>;
+
+    fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
+        let object = self.to_py(py).into_ref(py);
+        let object = py_to_js(py, object)?;
+        Ok(object.into_py(py))
+    }
 }
 
 impl ToPy for Value<Engine> {
@@ -25,6 +35,18 @@ impl ToPy for Value<Engine> {
             Value::ExternRef(None) => py.None(),
         }
     }
+
+    fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
+        if let Value::FuncRef(Some(func)) = self {
+            let func = func.to_py(py).into_ref(py);
+            let func = py_to_js_proxy(py, func)?;
+            return Ok(func.into_py(py));
+        }
+
+        let object = self.to_py(py).into_ref(py);
+        let object = py_to_js(py, object)?;
+        Ok(object.into_py(py))
+    }
 }
 
 impl ToPy for Extern<Engine> {
@@ -35,6 +57,18 @@ impl ToPy for Extern<Engine> {
             Extern::Memory(v) => v.to_py(py),
             Extern::Func(v) => v.to_py(py),
         }
+    }
+
+    fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
+        if let Extern::Func(func) = self {
+            let func = func.to_py(py).into_ref(py);
+            let func = py_to_js_proxy(py, func)?;
+            return Ok(func.into_py(py));
+        }
+
+        let object = self.to_py(py).into_ref(py);
+        let object = py_to_js(py, object)?;
+        Ok(object.into_py(py))
     }
 }
 
@@ -106,4 +140,45 @@ pub fn instanceof(py: Python, object: &PyAny, constructor: &PyAny) -> Result<boo
         ))?;
 
     instanceof.call1((object, constructor))?.extract()
+}
+
+pub fn py_to_js<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py PyAny, PyErr> {
+    py.import(intern!(py, "pyodide"))?
+        .getattr(intern!(py, "ffi"))?
+        .getattr(intern!(py, "to_js"))?
+        .call(
+            (object,),
+            Some([(intern!(py, "create_pyproxies"), false)].into_py_dict(py)),
+        )
+}
+
+pub fn py_to_js_proxy<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py PyAny, PyErr> {
+    py.import(intern!(py, "pyodide"))?
+        .getattr(intern!(py, "ffi"))?
+        .getattr(intern!(py, "to_js"))?
+        .call(
+            (object,),
+            Some([(intern!(py, "create_pyproxies"), true)].into_py_dict(py)),
+        )
+}
+
+pub fn py_dict_to_js_object<'py>(py: Python<'py>, dict: &'py PyDict) -> Result<&'py PyAny, PyErr> {
+    let object_from_entries = py
+        .import(intern!(py, "js"))?
+        .getattr(intern!(py, "Object"))?
+        .getattr(intern!(py, "fromEntries"))?;
+
+    py.import(intern!(py, "pyodide"))?
+        .getattr(intern!(py, "ffi"))?
+        .getattr(intern!(py, "to_js"))?
+        .call(
+            (dict,),
+            Some(
+                [
+                    (intern!(py, "create_pyproxies"), &**PyBool::new(py, false)),
+                    (intern!(py, "dict_converter"), object_from_entries),
+                ]
+                .into_py_dict(py),
+            ),
+        )
 }

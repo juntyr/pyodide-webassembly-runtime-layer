@@ -5,7 +5,7 @@ use wasm_runtime_layer::{
 };
 
 use crate::{
-    conversion::{instanceof, ToPy, ValueExt, ValueTypeExt},
+    conversion::{instanceof, py_dict_to_js_object, ToPy, ValueExt, ValueTypeExt},
     Engine,
 };
 
@@ -31,12 +31,13 @@ impl WasmTable<Engine> for Table {
             let desc = PyDict::new(py);
             desc.set_item(intern!(py, "element"), ty.element().as_js_descriptor())?;
             desc.set_item(intern!(py, "initial"), ty.minimum())?;
-
             if let Some(max) = ty.maximum() {
                 desc.set_item(intern!(py, "maximum"), max)?;
             }
+            let desc = py_dict_to_js_object(py, desc)?;
 
-            let init = init.to_py(py);
+            // init is passed to WebAssembly table, so it must be turned into JS
+            let init = init.to_py_js(py)?;
 
             let table = web_assembly_table(py)?
                 .getattr(intern!(py, "new"))?
@@ -71,7 +72,8 @@ impl WasmTable<Engine> for Table {
         init: Value<Engine>,
     ) -> anyhow::Result<u32> {
         Python::with_gil(|py| {
-            let init = init.to_py(py);
+            // init is passed to WebAssembly table, so it must be turned into JS
+            let init = init.to_py_js(py)?;
 
             let table = self.table.as_ref(py);
 
@@ -102,7 +104,8 @@ impl WasmTable<Engine> for Table {
         value: Value<Engine>,
     ) -> anyhow::Result<()> {
         Python::with_gil(|py| {
-            let value = value.to_py(py);
+            // value is passed to WebAssembly global, so it must be turned into JS
+            let value = value.to_py_js(py)?;
 
             let table = self.table.as_ref(py);
 
