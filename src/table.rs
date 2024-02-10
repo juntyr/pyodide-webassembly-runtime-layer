@@ -5,12 +5,12 @@ use wasm_runtime_layer::{
 };
 
 use crate::{
-    conversion::{instanceof, ToPy},
-    Engine, ValueTypeExt,
+    conversion::{instanceof, ToPy, ValueTypeExt},
+    Engine,
 };
 
 #[derive(Debug, Clone)]
-/// WebAssembly table
+/// A WebAssembly table
 pub struct Table {
     /// Table reference
     table: Py<PyAny>,

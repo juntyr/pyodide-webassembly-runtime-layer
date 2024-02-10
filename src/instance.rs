@@ -3,13 +3,13 @@ use std::collections::BTreeMap;
 use fxhash::FxHashMap;
 use pyo3::{intern, prelude::*, types::IntoPyDict};
 use wasm_runtime_layer::{
-    backend::{AsContext, Export, Extern, Imports, WasmInstance},
+    backend::{AsContext, AsContextMut, Export, Extern, Imports, WasmInstance, WasmModule},
     ExternType,
 };
 
-use crate::{conversion::ToPy, module::ParsedModule, Engine, Func, Global, Memory, Module, Table};
+use crate::{conversion::ToPy, Engine, Func, Global, Memory, Module, Table};
 
-/// A WebAssembly Instance.
+/// A WebAssembly Instance
 #[derive(Debug, Clone)]
 pub struct Instance {
     /// The inner instance
@@ -20,7 +20,7 @@ pub struct Instance {
 
 impl WasmInstance<Engine> for Instance {
     fn new(
-        _store: impl super::AsContextMut<Engine>,
+        _store: impl AsContextMut<Engine>,
         module: &Module,
         imports: &Imports<Engine>,
     ) -> anyhow::Result<Self> {
@@ -38,7 +38,7 @@ impl WasmInstance<Engine> for Instance {
             let _span = tracing::debug_span!("get_exports").entered();
 
             let exports = instance.getattr(intern!(py, "exports"))?;
-            let exports = process_exports(exports, module.parsed())?;
+            let exports = process_exports(exports, module)?;
 
             Ok(Self {
                 _instance: instance.into_py(py),
@@ -95,7 +95,7 @@ fn create_imports_object<'py>(py: Python<'py>, imports: &Imports<Engine>) -> &'p
 /// Processes a wasm module's exports into a hashmap
 fn process_exports(
     exports: &PyAny,
-    parsed: &ParsedModule,
+    module: &Module,
 ) -> anyhow::Result<FxHashMap<String, Extern<Engine>>> {
     let py = exports.py();
 
@@ -111,7 +111,7 @@ fn process_exports(
             #[cfg(feature = "tracing")]
             let _span = tracing::trace_span!("process_export", ?name, ?value).entered();
 
-            let signature = parsed.exports.get(&name).expect("export signature").clone();
+            let signature = module.get_export(&name).expect("export signature");
 
             let export = match signature {
                 ExternType::Func(signature) => {

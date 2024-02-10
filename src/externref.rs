@@ -1,6 +1,7 @@
+use pyo3::prelude::*;
 use wasm_runtime_layer::backend::{AsContextMut, WasmEngine, WasmExternRef};
 
-use crate::Engine;
+use crate::{conversion::ToPy, Engine};
 
 #[derive(Debug, Clone)]
 /// Extern host reference type
@@ -17,6 +18,12 @@ impl WasmExternRef<Engine> for ExternRef {
         &self,
         _ctx: <Engine as WasmEngine>::StoreContext<'a, S>,
     ) -> anyhow::Result<Option<&'a T>> {
+        unimplemented!("ExternRef is not supported in the pyodide backend")
+    }
+}
+
+impl ToPy for ExternRef {
+    fn to_py(&self, _py: Python) -> Py<PyAny> {
         unimplemented!("ExternRef is not supported in the pyodide backend")
     }
 }

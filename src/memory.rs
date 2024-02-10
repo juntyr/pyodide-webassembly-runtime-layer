@@ -14,7 +14,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
-/// WebAssembly memory
+/// A WebAssembly Memory
 pub struct Memory {
     /// The memory value
     pub value: Py<PyAny>,

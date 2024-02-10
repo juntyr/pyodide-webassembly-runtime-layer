@@ -5,13 +5,11 @@ use wasm_runtime_layer::{
 };
 
 use crate::{
-    conversion::{instanceof, ToPy},
-    Engine, ValueExt, ValueTypeExt,
+    conversion::{instanceof, ToPy, ValueExt, ValueTypeExt},
+    Engine,
 };
 
 /// A global variable accesible as an import or export in a module
-///
-/// Stored within the store
 #[derive(Debug, Clone)]
 pub struct Global {
     /// The global value
@@ -23,10 +21,13 @@ pub struct Global {
 impl WasmGlobal<Engine> for Global {
     fn new(_ctx: impl AsContextMut<Engine>, value: Value<Engine>, mutable: bool) -> Self {
         Python::with_gil(|py| -> Result<Self, PyErr> {
-            let ty = GlobalType::new(value.ty(), mutable);
+            let ty = GlobalType::new(ValueExt::ty(&value), mutable);
 
             let desc = PyDict::new(py);
-            desc.set_item(intern!(py, "value"), value.ty().as_js_descriptor())?;
+            desc.set_item(
+                intern!(py, "value"),
+                ValueExt::ty(&value).as_js_descriptor(),
+            )?;
             desc.set_item(intern!(py, "mutable"), mutable)?;
 
             let value = value.to_py(py);
@@ -63,13 +64,13 @@ impl WasmGlobal<Engine> for Global {
         })
     }
 
-    fn get(&self, mut ctx: impl AsContextMut<Engine>) -> Value<Engine> {
+    fn get(&self, _ctx: impl AsContextMut<Engine>) -> Value<Engine> {
         Python::with_gil(|py| {
             let global = self.value.as_ref(py);
 
             let value = global.getattr(intern!(py, "value"))?;
 
-            Value::from_py_typed(&mut ctx.as_context_mut(), &self.ty.content(), value)
+            Value::from_py_typed(value, &self.ty.content())
         })
         .unwrap()
     }

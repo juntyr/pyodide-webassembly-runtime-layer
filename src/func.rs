@@ -6,13 +6,16 @@ use wasm_runtime_layer::{
     FuncType,
 };
 
-use crate::{conversion::ToPy, Engine, StoreContextMut, ValueExt};
+use crate::{
+    conversion::{ToPy, ValueExt},
+    Engine, StoreContextMut,
+};
 
 /// A bound function
 #[derive(Debug, Clone)]
 pub struct Func {
     /// The inner function
-    pub(crate) func: Py<PyAny>,
+    func: Py<PyAny>,
     /// The function signature
     ty: FuncType,
     user_state: Option<TypeId>,
@@ -55,7 +58,7 @@ impl WasmFunc<Engine> for Func {
                     .params()
                     .iter()
                     .zip(args.iter())
-                    .map(|(ty, arg)| Value::from_py_typed(store, ty, arg))
+                    .map(|(ty, arg)| Value::from_py_typed(arg, ty))
                     .collect::<Result<Vec<_>, _>>()?;
                 let mut results = vec![Value::I32(0); ty.results().len()];
 
@@ -120,7 +123,7 @@ impl WasmFunc<Engine> for Func {
                     assert_eq!(user_state, non_static_type_id(store.data()));
 
                     let store = PyStoreContextMut {
-                        ptr: (&mut store as *mut StoreContextMut<_>) as *mut StoreContextMut<()>,
+                        ptr: std::ptr::from_mut(&mut store).cast(),
                         user_state,
                     };
 
@@ -143,7 +146,7 @@ impl WasmFunc<Engine> for Func {
                 .zip(results.iter_mut())
                 .zip(res.iter())
             {
-                *result = Value::from_py_typed(&mut store, ty, value)?;
+                *result = Value::from_py_typed(value, ty)?;
             }
 
             Ok(())

@@ -1,55 +1,97 @@
-use js_sys::Number;
 use pyo3::{intern, prelude::*};
-use wasm_bindgen::JsValue;
+use wasm_runtime_layer::{
+    backend::{Extern, Value},
+    ValueType,
+};
 
-use crate::StoreInner;
-
-/// Converts a Rust type from JavaScript which needs to be stored in the store
-pub trait FromStoredJs {
-    /// Convert a JavaScript value to this type
-    ///
-    /// Returns None if the type does not match
-    fn from_stored_js<T>(store: &mut StoreInner<T>, value: JsValue) -> Option<Self>
-    where
-        Self: Sized;
-}
-
-/// Converts a Rust type from JavaScript
-pub trait FromJs {
-    /// Convert a JavaScript value to this type
-    ///
-    /// Returns None if the type does not match
-    fn from_js(value: JsValue) -> Option<Self>
-    where
-        Self: Sized;
-}
-
-/// Converts a Rust type to JavaScript which needs to be stored in the store
-pub trait ToStoredJs {
-    /// The type used to represent the resulting type for JavaScript.
-    ///
-    /// Sometimes, the exact underlying type is desired in order to be manipulated
-    type Repr: Into<JsValue>;
-
-    /// Convert this value to JavaScript
-    fn to_stored_js<T>(&self, store: &StoreInner<T>) -> Self::Repr;
-}
-
-/// Converts a Rust type to JavaScript
-pub trait ToJs {
-    /// The type used to represent the resulting type for JavaScript.
-    ///
-    /// Sometimes, the exact underlying type is desired in order to be manipulated
-    type Repr: Into<JsValue>;
-
-    /// Convert this value to JavaScript
-    fn to_js(&self) -> Self::Repr;
-}
+use crate::Engine;
 
 /// Converts a Rust type to Python
 pub trait ToPy {
     /// Convert this value to Python
     fn to_py(&self, py: Python) -> Py<PyAny>;
+}
+
+impl ToPy for Value<Engine> {
+    fn to_py(&self, py: Python) -> Py<PyAny> {
+        match self {
+            Value::I32(v) => v.to_object(py),
+            Value::I64(v) => v.to_object(py),
+            Value::F32(v) => v.to_object(py),
+            Value::F64(v) => v.to_object(py),
+            Value::FuncRef(Some(func)) => func.to_py(py),
+            Value::FuncRef(None) => py.None(),
+            Value::ExternRef(Some(r#ref)) => r#ref.to_py(py),
+            Value::ExternRef(None) => py.None(),
+        }
+    }
+}
+
+impl ToPy for Extern<Engine> {
+    fn to_py(&self, py: Python) -> Py<PyAny> {
+        match self {
+            Extern::Global(v) => v.to_py(py),
+            Extern::Table(v) => v.to_py(py),
+            Extern::Memory(v) => v.to_py(py),
+            Extern::Func(v) => v.to_py(py),
+        }
+    }
+}
+
+pub trait ValueExt: Sized {
+    /// Convert a value to its type
+    fn ty(&self) -> ValueType;
+
+    /// Convert the [`PyAny`] value into a Value of the supplied type
+    fn from_py_typed(value: &PyAny, ty: &ValueType) -> anyhow::Result<Self>;
+}
+
+impl ValueExt for Value<Engine> {
+    /// Convert a value to its type
+    fn ty(&self) -> ValueType {
+        match self {
+            Value::I32(_) => ValueType::I32,
+            Value::I64(_) => ValueType::I64,
+            Value::F32(_) => ValueType::F32,
+            Value::F64(_) => ValueType::F64,
+            Value::FuncRef(_) => ValueType::FuncRef,
+            Value::ExternRef(_) => ValueType::ExternRef,
+        }
+    }
+
+    fn from_py_typed(value: &PyAny, ty: &ValueType) -> anyhow::Result<Self> {
+        match ty {
+            ValueType::I32 => Ok(Value::I32(value.extract()?)),
+            ValueType::I64 => Ok(Value::I64(value.extract()?)),
+            ValueType::F32 => Ok(Value::F32(value.extract()?)),
+            ValueType::F64 => Ok(Value::F64(value.extract()?)),
+            ValueType::FuncRef | ValueType::ExternRef => {
+                anyhow::bail!(
+                    "conversion to a function or extern outside of a module not permitted"
+                )
+            }
+        }
+    }
+}
+
+pub trait ValueTypeExt {
+    /// Converts this type into the canonical ABI kind
+    ///
+    /// See: <https://webassembly.github.io/spec/js-api/#globals>
+    fn as_js_descriptor(&self) -> &str;
+}
+
+impl ValueTypeExt for ValueType {
+    fn as_js_descriptor(&self) -> &str {
+        match self {
+            Self::I32 => "i32",
+            Self::I64 => "i64",
+            Self::F32 => "f32",
+            Self::F64 => "f64",
+            Self::FuncRef => "anyfunc",
+            Self::ExternRef => "externref",
+        }
+    }
 }
 
 /// Check if `object` is an instance of the JavaScript class with `constructor`.
@@ -64,91 +106,4 @@ pub fn instanceof(py: Python, object: &PyAny, constructor: &PyAny) -> Result<boo
         ))?;
 
     instanceof.call1((object, constructor))?.extract()
-}
-
-impl<V> FromStoredJs for V
-where
-    V: FromJs,
-{
-    fn from_stored_js<T>(_: &mut StoreInner<T>, value: JsValue) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        Self::from_js(value)
-    }
-}
-
-impl<V> ToStoredJs for V
-where
-    V: ToJs,
-{
-    type Repr = V::Repr;
-
-    fn to_stored_js<T>(&self, _: &StoreInner<T>) -> Self::Repr {
-        self.to_js()
-    }
-}
-
-/// Generate conversion from numeral types to and from JavaScript
-macro_rules! conv_number {
-    ($ty: ty) => {
-        impl ToJs for $ty {
-            type Repr = Number;
-
-            fn to_js(&self) -> Number {
-                From::from(*self)
-            }
-        }
-
-        impl FromJs for $ty {
-            fn from_js(value: JsValue) -> Option<Self> {
-                Some(value.as_f64()? as $ty)
-            }
-        }
-    };
-
-    ($($ty: ty),*) => {
-        $(conv_number!{ $ty } )*
-    }
-}
-
-conv_number!(i32, f32, f64);
-
-impl ToJs for i64 {
-    type Repr = JsValue;
-
-    fn to_js(&self) -> Self::Repr {
-        // NOTE: this is the closest representation of a 64 bit integer in javascript without
-        // using BigInt.
-        //
-        // This is a lossy conversion and can only accurately represent 2^53 without significand
-        // loss
-        JsValue::from(*self as f64)
-    }
-}
-
-impl FromJs for i64 {
-    fn from_js(value: JsValue) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        value.try_into().ok()
-    }
-}
-
-impl FromJs for bool {
-    fn from_js(value: JsValue) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        value.as_bool()
-    }
-}
-
-impl ToJs for bool {
-    type Repr = JsValue;
-
-    fn to_js(&self) -> Self::Repr {
-        JsValue::from(*self)
-    }
 }
