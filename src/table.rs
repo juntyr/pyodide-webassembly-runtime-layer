@@ -79,7 +79,8 @@ impl WasmTable<Engine> for Table {
             let table = self.table.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Table::grow", %table, ?self.ty, delta, ?init).entered();
+            let _span =
+                tracing::debug_span!("Table::grow", %table, ?self.ty, delta, ?init).entered();
 
             // init is passed to WebAssembly table, so it must be turned into JS
             let init = init.to_py_js(py)?;
@@ -117,7 +118,8 @@ impl WasmTable<Engine> for Table {
             let table = self.table.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Table::set", %table, ?self.ty, index, ?value).entered();
+            let _span =
+                tracing::debug_span!("Table::set", %table, ?self.ty, index, ?value).entered();
 
             // value is passed to WebAssembly global, so it must be turned into JS
             let value = value.to_py_js(py)?;
@@ -131,8 +133,8 @@ impl WasmTable<Engine> for Table {
 
 impl ToPy for Table {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Table::to_py", %self.table, ?self.ty).entered();
+        // #[cfg(feature = "tracing")]
+        // let _span = tracing::debug_span!("Table::to_py", %self.table, ?self.ty).entered();
 
         self.table.clone_ref(py)
     }

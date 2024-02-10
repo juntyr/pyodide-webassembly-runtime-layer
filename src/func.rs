@@ -44,54 +44,56 @@ impl WasmFunc<Engine> for Func {
             let user_state = non_static_type_id(store.data());
             let ty_clone = ty.clone();
 
-            let _func = Box::new(move |args: &PyTuple, ctx: &mut PyStoreContextMut| -> Result<Py<PyAny>, PyErr> {
-                assert_eq!(ctx.user_state, user_state);
+            let _func = Box::new(
+                move |args: &PyTuple, ctx: &mut PyStoreContextMut| -> Result<Py<PyAny>, PyErr> {
+                    assert_eq!(ctx.user_state, user_state);
 
-                // Safety:
-                //  - type casting: we just checked the type id
-                //  - mutable reference:
-                //    - PyStoreContextMut::ptr is constructed from a mutable
-                //      reference
-                //    - we ensure that PyStoreContextMut is only accessed for
-                //      the lifetime of that mutable borrow
-                let store: &mut StoreContextMut<T> = unsafe { &mut *ctx.ptr.cast() };
+                    // Safety:
+                    //  - type casting: we just checked the type id
+                    //  - mutable reference:
+                    //    - PyStoreContextMut::ptr is constructed from a mutable
+                    //      reference
+                    //    - we ensure that PyStoreContextMut is only accessed for
+                    //      the lifetime of that mutable borrow
+                    let store: &mut StoreContextMut<T> = unsafe { &mut *ctx.ptr.cast() };
 
-                let py = args.py();
-                let ty = &ty_clone;
+                    let py = args.py();
+                    let ty = &ty_clone;
 
-                let args = ty
-                    .params()
-                    .iter()
-                    .zip(args.iter())
-                    .map(|(ty, arg)| Value::from_py_typed(arg, ty))
-                    .collect::<Result<Vec<_>, _>>()?;
-                let mut results = vec![Value::I32(0); ty.results().len()];
+                    let args = ty
+                        .params()
+                        .iter()
+                        .zip(args.iter())
+                        .map(|(ty, arg)| Value::from_py_typed(arg, ty))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let mut results = vec![Value::I32(0); ty.results().len()];
 
-                #[cfg(feature = "tracing")]
-                let _span = tracing::debug_span!("call_host", ?args, ?ty).entered();
+                    #[cfg(feature = "tracing")]
+                    let _span = tracing::debug_span!("call_host", ?args, ?ty).entered();
 
-                match func(store.as_context_mut(), &args, &mut results) {
-                    Ok(()) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::debug!(?results, "result");
+                    match func(store.as_context_mut(), &args, &mut results) {
+                        Ok(()) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::debug!(?results, "result");
+                        }
+                        Err(err) => {
+                            #[cfg(feature = "tracing")]
+                            tracing::error!("{err:?}");
+                            return Err(err.into());
+                        }
                     }
-                    Err(err) => {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("{err:?}");
-                        return Err(err.into());
-                    }
-                }
 
-                let results = match results.as_slice() {
-                    [] => py.None(),
-                    [res] => res.to_py(py),
-                    results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))
-                        .as_ref()
-                        .into_py(py),
-                };
+                    let results = match results.as_slice() {
+                        [] => py.None(),
+                        [res] => res.to_py(py),
+                        results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))
+                            .as_ref()
+                            .into_py(py),
+                    };
 
-                Ok(results)
-            });
+                    Ok(results)
+                },
+            );
 
             #[pyfunction]
             #[pyo3(signature = (*args))]
@@ -196,14 +198,14 @@ impl WasmFunc<Engine> for Func {
 
 impl ToPy for Func {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Func::to_py", %self.func, ?self.ty).entered();
+        // #[cfg(feature = "tracing")]
+        // let _span = tracing::debug_span!("Func::to_py", %self.func, ?self.ty).entered();
         self.func.clone_ref(py)
     }
 
     fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Func::to_py_js", %self.func, ?self.ty).entered();
+        // #[cfg(feature = "tracing")]
+        // let _span = tracing::debug_span!("Func::to_py_js", %self.func, ?self.ty).entered();
         let func = py_to_js_proxy(py, self.func.as_ref(py))?;
         Ok(func.into_py(py))
     }
@@ -224,7 +226,8 @@ impl Func {
         }
 
         #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Func::from_exported_function", %value, ?signature).entered();
+        let _span =
+            tracing::debug_span!("Func::from_exported_function", %value, ?signature).entered();
 
         Ok(Self {
             func: value.into_py(py),

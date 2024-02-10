@@ -1,7 +1,12 @@
 use std::collections::BTreeMap;
 
 use fxhash::FxHashMap;
-use pyo3::{intern, prelude::*, types::{IntoPyDict, PyTuple}, PyTypeInfo};
+use pyo3::{
+    intern,
+    prelude::*,
+    types::{IntoPyDict, PyTuple},
+    PyTypeInfo,
+};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Export, Extern, Imports, WasmInstance, WasmModule},
     ExternType,

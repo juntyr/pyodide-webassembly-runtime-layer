@@ -24,8 +24,8 @@ pub trait ToPy {
 
 impl ToPy for Value<Engine> {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Value::to_py", ty = ?self.ty()).entered();
+        // #[cfg(feature = "tracing")]
+        // let _span = tracing::trace_span!("Value::to_py", ty = ?self.ty()).entered();
 
         match self {
             Value::I32(v) => v.to_object(py),
@@ -40,8 +40,8 @@ impl ToPy for Value<Engine> {
     }
 
     fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Value::to_py_js", ty = ?self.ty()).entered();
+        // #[cfg(feature = "tracing")]
+        // let _span = tracing::trace_span!("Value::to_py_js", ty = ?self.ty()).entered();
 
         if let Value::FuncRef(Some(func)) = self {
             let func = func.to_py(py).into_ref(py);
@@ -57,9 +57,9 @@ impl ToPy for Value<Engine> {
 
 impl ToPy for Extern<Engine> {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Extern::to_py").entered();
-        
+        // #[cfg(feature = "tracing")]
+        // let _span = tracing::trace_span!("Extern::to_py").entered();
+
         match self {
             Extern::Global(v) => v.to_py(py),
             Extern::Table(v) => v.to_py(py),
@@ -69,8 +69,8 @@ impl ToPy for Extern<Engine> {
     }
 
     fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Extern::to_py_js").entered();
+        // #[cfg(feature = "tracing")]
+        // let _span = tracing::trace_span!("Extern::to_py_js").entered();
 
         if let Extern::Func(func) = self {
             let func = func.to_py(py).into_ref(py);

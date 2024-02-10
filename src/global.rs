@@ -60,7 +60,8 @@ impl WasmGlobal<Engine> for Global {
         Python::with_gil(|py| {
             let global = self.value.as_ref(py);
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Global::set", %global, ?self.ty, ?new_value).entered();
+            let _span =
+                tracing::debug_span!("Global::set", %global, ?self.ty, ?new_value).entered();
 
             // value is passed to WebAssembly global, so it must be turned into JS
             let new_value = new_value.to_py_js(py)?;
@@ -87,8 +88,8 @@ impl WasmGlobal<Engine> for Global {
 
 impl ToPy for Global {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Global::to_py", %self.value, ?self.ty).entered();
+        // #[cfg(feature = "tracing")]
+        // let _span = tracing::debug_span!("Global::to_py", %self.value, ?self.ty).entered();
         self.value.clone_ref(py)
     }
 }
@@ -106,7 +107,8 @@ impl Global {
         }
 
         #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Global::from_exported_global", %value, ?signature).entered();
+        let _span =
+            tracing::debug_span!("Global::from_exported_global", %value, ?signature).entered();
 
         Ok(Self {
             value: value.into_py(py),

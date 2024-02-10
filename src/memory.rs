@@ -55,7 +55,8 @@ impl WasmMemory<Engine> for Memory {
             let memory = self.value.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Memory::grow", %memory, ?self.ty, additional).entered();
+            let _span =
+                tracing::debug_span!("Memory::grow", %memory, ?self.ty, additional).entered();
 
             let old_pages = memory
                 .call_method1(intern!(py, "grow"), (additional,))?
@@ -95,7 +96,9 @@ impl WasmMemory<Engine> for Memory {
             let memory = self.value.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Memory::read", %memory, ?self.ty, offset, len = buffer.len()).entered();
+            let _span =
+                tracing::debug_span!("Memory::read", %memory, ?self.ty, offset, len = buffer.len())
+                    .entered();
 
             let memory = memory.getattr(intern!(py, "buffer"))?;
             let memory = py
@@ -120,7 +123,8 @@ impl WasmMemory<Engine> for Memory {
             let memory = self.value.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Memory::write", %memory, ?self.ty, offset, ?buffer).entered();
+            let _span =
+                tracing::debug_span!("Memory::write", %memory, ?self.ty, offset, ?buffer).entered();
 
             let memory = memory.getattr(intern!(py, "buffer"))?;
             let memory = py
@@ -140,8 +144,8 @@ impl WasmMemory<Engine> for Memory {
 
 impl ToPy for Memory {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Memory::to_py", %self.value, ?self.ty).entered();
+        // #[cfg(feature = "tracing")]
+        // let _span = tracing::debug_span!("Memory::to_py", %self.value, ?self.ty).entered();
 
         self.value.clone_ref(py)
     }
