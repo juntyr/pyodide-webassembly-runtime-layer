@@ -3,7 +3,7 @@ use std::{any::TypeId, marker::PhantomData};
 use pyo3::{
     intern,
     prelude::*,
-    types::{IntoPyDict, PyTuple},
+    types::{IntoPyDict, PyDict, PyTuple},
     PyTypeInfo,
 };
 use wasm_runtime_layer::{
@@ -93,7 +93,13 @@ impl WasmFunc<Engine> for Func {
                 Ok(results)
             });
 
-            let func = Py::new(py, PyFunc { func })?;
+            let func = Py::new(
+                py,
+                PyFunc {
+                    _func: func,
+                    ty: ty.clone(),
+                },
+            )?;
 
             Ok(Self {
                 func: func.into_ref(py).into_py(py),
@@ -218,19 +224,36 @@ unsafe impl Sync for PyStoreContextMut {}
 #[pyclass(frozen)]
 struct PyFunc {
     #[allow(clippy::type_complexity)]
-    func: Box<
+    _func: Box<
         dyn 'static
             + Send
             + Sync
             + Fn(&PyTuple, &mut PyStoreContextMut) -> Result<Py<PyAny>, PyErr>,
     >,
+    ty: FuncType,
 }
 
 #[pymethods]
 impl PyFunc {
-    #[pyo3(signature = (*args, ctx))]
-    fn __call__(&self, args: &PyTuple, ctx: &mut PyStoreContextMut) -> Result<Py<PyAny>, PyErr> {
-        (self.func)(args, ctx)
+    // #[pyo3(signature = (*args, ctx))]
+    // fn __call__(&self, args: &PyTuple, ctx: &mut PyStoreContextMut) -> Result<Py<PyAny>, PyErr> {
+    //     (self.func)(args, ctx)
+    // }
+
+    #[pyo3(signature = (*args, **kwargs))]
+    fn __call__(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> Result<Py<PyAny>, PyErr> {
+        #[cfg(feature = "tracing")]
+        let _span = tracing::debug_span!("call_trampoline", ?self.ty).entered();
+
+        #[cfg(feature = "tracing")]
+        let _span = tracing::trace_span!("args", %args).entered();
+
+        #[cfg(feature = "tracing")]
+        if let Some(kwargs) = kwargs {
+            let _span = tracing::trace_span!("kwargs", %kwargs).entered();
+        }
+
+        Ok(args.py().None())
     }
 }
 
