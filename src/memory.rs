@@ -144,8 +144,8 @@ impl WasmMemory<Engine> for Memory {
 
 impl ToPy for Memory {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        // #[cfg(feature = "tracing")]
-        // let _span = tracing::debug_span!("Memory::to_py", %self.value, ?self.ty).entered();
+        #[cfg(feature = "tracing")]
+        let _span = tracing::trace_span!("Memory::to_py", %self.value, ?self.ty).entered();
 
         self.value.clone_ref(py)
     }

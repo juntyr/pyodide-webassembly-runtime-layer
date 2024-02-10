@@ -23,6 +23,7 @@ impl WasmGlobal<Engine> for Global {
         Python::with_gil(|py| -> Result<Self, PyErr> {
             #[cfg(feature = "tracing")]
             let _span = tracing::debug_span!("Global::new", ?value, mutable).entered();
+
             let ty = GlobalType::new(ValueExt::ty(&value), mutable);
 
             let desc = PyDict::new(py);
@@ -75,6 +76,7 @@ impl WasmGlobal<Engine> for Global {
     fn get(&self, _ctx: impl AsContextMut<Engine>) -> Value<Engine> {
         Python::with_gil(|py| {
             let global = self.value.as_ref(py);
+
             #[cfg(feature = "tracing")]
             let _span = tracing::debug_span!("Global::get", %global, ?self.ty).entered();
 
@@ -88,8 +90,9 @@ impl WasmGlobal<Engine> for Global {
 
 impl ToPy for Global {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        // #[cfg(feature = "tracing")]
-        // let _span = tracing::debug_span!("Global::to_py", %self.value, ?self.ty).entered();
+        #[cfg(feature = "tracing")]
+        let _span = tracing::trace_span!("Global::to_py", %self.value, ?self.ty).entered();
+
         self.value.clone_ref(py)
     }
 }

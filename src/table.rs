@@ -133,8 +133,8 @@ impl WasmTable<Engine> for Table {
 
 impl ToPy for Table {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        // #[cfg(feature = "tracing")]
-        // let _span = tracing::debug_span!("Table::to_py", %self.table, ?self.ty).entered();
+        #[cfg(feature = "tracing")]
+        let _span = tracing::trace_span!("Table::to_py", %self.table, ?self.ty).entered();
 
         self.table.clone_ref(py)
     }
@@ -150,7 +150,7 @@ impl Table {
         }
 
         #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Table::from_exported_table", %value, ?ty).entered();
+        let _span = tracing::debug_span!("Table::from_exported_table", %value, ?ty).entered();
 
         let table_length: u32 = value.getattr(intern!(py, "length"))?.extract()?;
 

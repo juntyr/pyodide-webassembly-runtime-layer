@@ -44,7 +44,7 @@ impl WasmFunc<Engine> for Func {
             let user_state = non_static_type_id(store.data());
             let ty_clone = ty.clone();
 
-            let _func = Box::new(
+            let func = Box::new(
                 move |args: &PyTuple, ctx: &mut PyStoreContextMut| -> Result<Py<PyAny>, PyErr> {
                     assert_eq!(ctx.user_state, user_state);
 
@@ -95,26 +95,16 @@ impl WasmFunc<Engine> for Func {
                 },
             );
 
-            #[pyfunction]
-            #[pyo3(signature = (*args))]
-            fn dummy_callback(args: &PyTuple) {
-                #[cfg(feature = "tracing")]
-                let _span = tracing::trace_span!("dummy callback args", %args).entered();
-                let _args = args;
-            }
-
-            let func = wrap_pyfunction!(dummy_callback, py)?;
-
-            // let func = Py::new(
-            //     py,
-            //     PyFunc {
-            //         _func: func,
-            //         ty: ty.clone(),
-            //     },
-            // )?;
+            let func = Py::new(
+                py,
+                PyFunc {
+                    _func: func,
+                    ty: ty.clone(),
+                },
+            )?;
 
             Ok(Self {
-                func: /*func.into_ref(py)*/func.into_py(py),
+                func: func.into_ref(py).into_py(py),
                 ty,
                 user_state: Some(user_state),
             })
@@ -198,14 +188,14 @@ impl WasmFunc<Engine> for Func {
 
 impl ToPy for Func {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        // #[cfg(feature = "tracing")]
-        // let _span = tracing::debug_span!("Func::to_py", %self.func, ?self.ty).entered();
+        #[cfg(feature = "tracing")]
+        let _span = tracing::trace_span!("Func::to_py", %self.func, ?self.ty).entered();
         self.func.clone_ref(py)
     }
 
     fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
-        // #[cfg(feature = "tracing")]
-        // let _span = tracing::debug_span!("Func::to_py_js", %self.func, ?self.ty).entered();
+        #[cfg(feature = "tracing")]
+        let _span = tracing::trace_span!("Func::to_py_js", %self.func, ?self.ty).entered();
         let func = py_to_js_proxy(py, self.func.as_ref(py))?;
         Ok(func.into_py(py))
     }
@@ -271,11 +261,11 @@ impl PyFunc {
         let _span = tracing::debug_span!("call_trampoline", ?self.ty).entered();
 
         #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("args", %args).entered();
+        tracing::debug!(%args);
 
         #[cfg(feature = "tracing")]
         if let Some(kwargs) = kwargs {
-            let _span = tracing::trace_span!("kwargs", %kwargs).entered();
+            tracing::debug!(%kwargs);
         }
 
         Ok(args.py().None())
