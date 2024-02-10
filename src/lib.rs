@@ -10,7 +10,7 @@ use js_sys::{JsString, Reflect};
 use pyo3::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, Extern, Value, WasmEngine},
+    backend::{AsContextMut, Extern, Value, WasmEngine},
     ValueType,
 };
 

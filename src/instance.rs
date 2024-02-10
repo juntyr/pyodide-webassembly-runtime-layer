@@ -1,79 +1,55 @@
 use std::collections::BTreeMap;
 
-use anyhow::{bail, Context};
 use fxhash::FxHashMap;
-use js_sys::{JsString, Object, Reflect, WebAssembly};
 use pyo3::{intern, prelude::*, types::IntoPyDict};
-use wasm_bindgen::{JsCast, JsValue};
 use wasm_runtime_layer::{
-    backend::{Export, Extern, Imports, WasmInstance},
+    backend::{AsContext, Export, Extern, Imports, WasmInstance},
     ExternType,
 };
 
-use crate::{
-    conversion::{ToPy, ToStoredJs},
-    module::ParsedModule,
-    Engine, Func, Global, JsErrorMsg, Memory, Module, StoreInner, Table,
-};
+use crate::{conversion::ToPy, module::ParsedModule, Engine, Func, Global, Memory, Module, Table};
 
 /// A WebAssembly Instance.
 #[derive(Debug, Clone)]
 pub struct Instance {
-    /// The id of the instance
-    pub(crate) id: usize,
-}
-
-/// Holds the inner state of the instance
-///
-/// Not *Send* + *Sync*, as all other Js values.
-#[derive(Debug)]
-pub(crate) struct InstanceInner {
     /// The inner instance
-    #[allow(dead_code)]
-    pub(crate) instance: WebAssembly::Instance,
+    _instance: Py<PyAny>,
     /// The exports of the instance
-    pub(crate) exports: FxHashMap<String, Extern<Engine>>,
+    exports: FxHashMap<String, Extern<Engine>>,
 }
 
 impl WasmInstance<Engine> for Instance {
     fn new(
-        mut store: impl super::AsContextMut<Engine>,
+        _store: impl super::AsContextMut<Engine>,
         module: &Module,
         imports: &Imports<Engine>,
     ) -> anyhow::Result<Self> {
-        #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Instance::new").entered();
-        let store: &mut StoreInner<_> = &mut *store.as_context_mut();
+        Python::with_gil(|py| {
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("Instance::new").entered();
 
-        let imports_object = create_imports_object(store, imports);
+            let imports_object = create_imports_object(py, imports);
 
-        let instance = WebAssembly::Instance::new(module.module(), &imports_object)
-            .map_err(JsErrorMsg::from)
-            .with_context(|| "Failed to instantiate module")?;
+            let instance = web_assembly_instance(py)?
+                .getattr(intern!(py, "new"))?
+                .call1((module.module(py), imports_object))?;
 
-        #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("get_exports").entered();
+            #[cfg(feature = "tracing")]
+            let _span = tracing::debug_span!("get_exports").entered();
 
-        let js_exports = Reflect::get(&instance, &"exports".into()).expect("exports object");
-        let exports = process_exports(store, js_exports, module.parsed())?;
+            let exports = instance.getattr(intern!(py, "exports"))?;
+            let exports = process_exports(exports, module.parsed())?;
 
-        let instance = InstanceInner { instance, exports };
-
-        let instance = store.insert_instance(instance);
-
-        Ok(instance)
+            Ok(Self {
+                _instance: instance.into_py(py),
+                exports,
+            })
+        })
     }
 
-    fn exports(
-        &self,
-        store: impl super::AsContext<Engine>,
-    ) -> Box<dyn Iterator<Item = Export<Engine>>> {
-        // TODO: modify this trait to make the lifetime of the returned iterator depend on the
-        // anonymous lifetime of the store
-        let instance: &InstanceInner = &store.as_context().instances[self.id];
+    fn exports(&self, _store: impl AsContext<Engine>) -> Box<dyn Iterator<Item = Export<Engine>>> {
         Box::new(
-            instance
-                .exports
+            self.exports
                 .iter()
                 .map(|(name, value)| Export {
                     name: name.into(),
@@ -84,57 +60,13 @@ impl WasmInstance<Engine> for Instance {
         )
     }
 
-    fn get_export(
-        &self,
-        store: impl super::AsContext<Engine>,
-        name: &str,
-    ) -> Option<Extern<Engine>> {
-        let instance: &InstanceInner = &store.as_context().instances[self.id];
-        instance.exports.get(name).cloned()
+    fn get_export(&self, _store: impl AsContext<Engine>, name: &str) -> Option<Extern<Engine>> {
+        self.exports.get(name).cloned()
     }
 }
 
 /// Creates the js import map
-fn create_imports_object<T>(store: &StoreInner<T>, imports: &Imports<Engine>) -> Object {
-    #[cfg(feature = "tracing")]
-    let _span = tracing::debug_span!("process_imports").entered();
-
-    let imports = imports
-        .into_iter()
-        .map(|((module, name), imp)| {
-            #[cfg(feature = "tracing")]
-            tracing::trace!(?module, ?name, ?imp, "import");
-            let js = imp.to_stored_js(store);
-
-            #[cfg(feature = "tracing")]
-            tracing::trace!(module, name, "export");
-
-            (module, (JsString::from(&*name), js))
-        })
-        .fold(BTreeMap::<String, Vec<_>>::new(), |mut acc, (m, value)| {
-            acc.entry(m).or_default().push(value);
-            acc
-        });
-
-    imports
-        .iter()
-        .map(|(module, imports)| {
-            let obj = Object::new();
-
-            for (name, value) in imports {
-                Reflect::set(&obj, name, value).unwrap();
-            }
-
-            (module, obj)
-        })
-        .fold(Object::new(), |acc, (m, imports)| {
-            Reflect::set(&acc, &(m).into(), &imports).unwrap();
-            acc
-        })
-}
-
-/// Creates the js import map
-fn _create_imports_object_v2<'py>(py: Python<'py>, imports: &Imports<Engine>) -> &'py PyAny {
+fn create_imports_object<'py>(py: Python<'py>, imports: &Imports<Engine>) -> &'py PyAny {
     #[cfg(feature = "tracing")]
     let _span = tracing::debug_span!("process_imports").entered();
 
@@ -161,112 +93,7 @@ fn _create_imports_object_v2<'py>(py: Python<'py>, imports: &Imports<Engine>) ->
 }
 
 /// Processes a wasm module's exports into a hashmap
-fn process_exports<T>(
-    _store: &mut StoreInner<T>,
-    exports: JsValue,
-    parsed: &ParsedModule,
-) -> anyhow::Result<FxHashMap<String, Extern<Engine>>> {
-    #[cfg(feature = "tracing")]
-    let _span = tracing::debug_span!("process_exports", ?exports).entered();
-    if !exports.is_object() {
-        bail!(
-            "WebAssembly exports must be an object, got '{:?}' instead",
-            exports
-        );
-    }
-
-    let exports: Object = exports.into();
-
-    Object::entries(&exports)
-        .into_iter()
-        .map(|entry| {
-            let name = Reflect::get_u32(&entry, 0)
-                .unwrap()
-                .as_string()
-                .expect("name is string");
-
-            let value: JsValue = Reflect::get_u32(&entry, 1).unwrap();
-
-            #[cfg(feature = "tracing")]
-            let _span = tracing::trace_span!("process_export", ?name, ?value).entered();
-
-            let _signature = parsed.exports.get(&name).expect("export signature").clone();
-
-            #[allow(clippy::let_unit_value)] // FIXME
-            let _ext = match &value
-                .js_typeof()
-                .as_string()
-                .expect("typeof returns a string")[..]
-            {
-                "function" => {
-                    // let func = Func::from_exported_function(
-                    //     store,
-                    //     value,
-                    //     signature.try_into_func().unwrap(),
-                    // )
-                    // .unwrap();
-
-                    // Extern::Func(func)
-                    todo!() // FIXME
-                }
-                "object" => {
-                    if value.is_instance_of::<js_sys::Function>() {
-                        // let func = Func::from_exported_function(
-                        //     store,
-                        //     value,
-                        //     signature.try_into_func().unwrap(),
-                        // )
-                        // .unwrap();
-
-                        // Extern::Func(func)
-                        todo!() // FIXME
-                    } else if value.is_instance_of::<WebAssembly::Table>() {
-                        // let table = Table::from_stored_js(
-                        //     store,
-                        //     value,
-                        //     signature.try_into_table().unwrap(),
-                        // )
-                        // .unwrap();
-
-                        // Extern::Table(table)
-                        todo!() // FIXME
-                    } else if value.is_instance_of::<WebAssembly::Memory>() {
-                        // let memory = Memory::from_exported_memory(
-                        //     store,
-                        //     value,
-                        //     signature.try_into_memory().unwrap(),
-                        // )
-                        // .unwrap();
-
-                        // Extern::Memory(memory)
-                        todo!() // FIXME
-                    } else if value.is_instance_of::<WebAssembly::Global>() {
-                        // let global = Global::from_exported_global(
-                        //     store,
-                        //     value,
-                        //     signature.try_into_global().unwrap(),
-                        // )
-                        // .unwrap();
-
-                        // Extern::Global(global)
-                        todo!() // FIXME
-                    } else {
-                        #[cfg(feature = "tracing")]
-                        tracing::error!("Unsupported export type {value:?}");
-                        panic!("Unsupported export type {value:?}")
-                    }
-                }
-                _ => panic!("Unsupported export type {value:?}"),
-            };
-
-            // Ok((name, ext))
-        })
-        .collect()
-}
-
-#[allow(unused)] // FIXME
-/// Processes a wasm module's exports into a hashmap
-fn _process_exports_v2(
+fn process_exports(
     exports: &PyAny,
     parsed: &ParsedModule,
 ) -> anyhow::Result<FxHashMap<String, Extern<Engine>>> {
@@ -300,4 +127,10 @@ fn _process_exports_v2(
             Ok((name, export))
         })
         .collect()
+}
+
+fn web_assembly_instance(py: Python) -> Result<&PyAny, PyErr> {
+    py.import(intern!(py, "js"))?
+        .getattr(intern!(py, "WebAssembly"))?
+        .getattr(intern!(py, "Instance"))
 }

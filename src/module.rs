@@ -78,9 +78,8 @@ impl WasmModule<Engine> for Module {
 }
 
 impl Module {
-    pub(crate) fn module(&self) -> &js_sys::WebAssembly::Module {
-        // FIXME
-        todo!()
+    pub(crate) fn module<'a, 'py: 'a>(&'a self, py: Python<'py>) -> &'a PyAny {
+        self.module.as_ref(py)
     }
 
     pub(crate) fn parsed(&self) -> &ParsedModule {

@@ -3,12 +3,11 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use slab::Slab;
 use wasm_runtime_layer::backend::{
     AsContext, AsContextMut, WasmEngine, WasmStore, WasmStoreContext, WasmStoreContextMut,
 };
 
-use crate::{instance::InstanceInner, Engine, Instance};
+use crate::Engine;
 
 /// Owns all the data for the wasm module
 ///
@@ -93,7 +92,6 @@ impl<T> WasmStore<T, Engine> for Store<T> {
         let _span = tracing::debug_span!("Store::new").entered();
         Self::from_inner(Box::new(StoreInner {
             engine: engine.clone(),
-            instances: Slab::new(),
             data,
         }))
     }
@@ -151,19 +149,8 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Store<T> {
 pub struct StoreInner<T> {
     /// The engine used
     pub(crate) engine: Engine,
-    /// Instances are not Send + Sync
-    pub(crate) instances: Slab<InstanceInner>,
     /// The user data
     pub(crate) data: T,
-}
-
-impl<T> StoreInner<T> {
-    /// Inserts a new instance and returns its id
-    pub(crate) fn insert_instance(&mut self, instance: InstanceInner) -> Instance {
-        Instance {
-            id: self.instances.insert(instance),
-        }
-    }
 }
 
 /// Immutable context to the store
