@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use fxhash::FxHashMap;
-use pyo3::{intern, prelude::*, types::IntoPyDict};
+use pyo3::{intern, prelude::*, types::{IntoPyDict, PyTuple}, PyTypeInfo};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Export, Extern, Imports, WasmInstance, WasmModule},
     ExternType,
@@ -118,7 +118,8 @@ fn process_exports(
         .call_method0(intern!(py, "object_entries"))?
         .iter()?
         .map(|entry| {
-            let (name, value): (String, &PyAny) = entry?.extract()?;
+            let entry = PyTuple::type_object(py).call1((entry?,))?;
+            let (name, value): (String, &PyAny) = entry.extract()?;
 
             #[cfg(feature = "tracing")]
             let _span = tracing::trace_span!("process_export", ?name, %value).entered();
