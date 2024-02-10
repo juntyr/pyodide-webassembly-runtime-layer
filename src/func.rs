@@ -44,7 +44,7 @@ impl WasmFunc<Engine> for Func {
             let user_state = non_static_type_id(store.data());
             let ty_clone = ty.clone();
 
-            let func = Box::new(move |args: &PyTuple, ctx: &mut PyStoreContextMut| {
+            let _func = Box::new(move |args: &PyTuple, ctx: &mut PyStoreContextMut| -> Result<Py<PyAny>, PyErr> {
                 assert_eq!(ctx.user_state, user_state);
 
                 // Safety:
@@ -93,16 +93,26 @@ impl WasmFunc<Engine> for Func {
                 Ok(results)
             });
 
-            let func = Py::new(
-                py,
-                PyFunc {
-                    _func: func,
-                    ty: ty.clone(),
-                },
-            )?;
+            #[pyfunction]
+            #[pyo3(signature = (*args))]
+            fn dummy_callback(args: &PyTuple) {
+                #[cfg(feature = "tracing")]
+                let _span = tracing::trace_span!("dummy callback args", %args).entered();
+                let _args = args;
+            }
+
+            let func = wrap_pyfunction!(dummy_callback, py)?;
+
+            // let func = Py::new(
+            //     py,
+            //     PyFunc {
+            //         _func: func,
+            //         ty: ty.clone(),
+            //     },
+            // )?;
 
             Ok(Self {
-                func: func.into_ref(py).into_py(py),
+                func: /*func.into_ref(py)*/func.into_py(py),
                 ty,
                 user_state: Some(user_state),
             })
