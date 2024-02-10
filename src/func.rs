@@ -1,6 +1,11 @@
 use std::{any::TypeId, marker::PhantomData};
 
-use pyo3::{intern, prelude::*, types::IntoPyDict, types::PyTuple};
+use pyo3::{
+    intern,
+    prelude::*,
+    types::{IntoPyDict, PyTuple},
+    PyTypeInfo,
+};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmFunc, WasmStoreContext},
     FuncType,
@@ -136,22 +141,30 @@ impl WasmFunc<Engine> for Func {
                 }
             };
 
-            let res: &PyTuple = func.call(args, kwargs)?.extract()?;
+            let res = func.call(args, kwargs)?;
 
             #[cfg(feature = "tracing")]
             tracing::debug!(?res,ty=?self.ty);
 
-            // https://webassembly.github.io/spec/js-api/#exported-function-exotic-objects
-            assert_eq!(self.ty.results().len(), res.len());
+            match (self.ty.results(), results) {
+                ([], []) => (),
+                ([ty], [result]) => *result = Value::from_py_typed(res, ty)?,
+                (tys, results) => {
+                    let res: &PyTuple = PyTuple::type_object(py).call1((res,))?.extract()?;
 
-            for ((ty, result), value) in self
-                .ty
-                .results()
-                .iter()
-                .zip(results.iter_mut())
-                .zip(res.iter())
-            {
-                *result = Value::from_py_typed(value, ty)?;
+                    // https://webassembly.github.io/spec/js-api/#exported-function-exotic-objects
+                    assert_eq!(tys.len(), res.len());
+
+                    for ((ty, result), value) in self
+                        .ty
+                        .results()
+                        .iter()
+                        .zip(results.iter_mut())
+                        .zip(res.iter())
+                    {
+                        *result = Value::from_py_typed(value, ty)?;
+                    }
+                }
             }
 
             Ok(())
