@@ -1,6 +1,6 @@
 use std::{any::TypeId, marker::PhantomData, sync::Weak};
 
-use pyo3::{prelude::*, types::PyTuple, PyTypeInfo};
+use pyo3::{intern, prelude::*, types::PyTuple, PyTypeInfo};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmFunc, WasmStoreContext},
     FuncType,
@@ -19,6 +19,20 @@ pub struct Func {
     /// The function signature
     ty: FuncType,
     user_state: Option<TypeId>,
+}
+
+impl Drop for Func {
+    fn drop(&mut self) {
+        Python::with_gil(|py| {
+            let func = self.func.as_ref(py);
+            let _res = func.call_method0(intern!(py, "destroy"));
+            #[cfg(feature = "tracing")]
+            match _res {
+                Ok(ok) => tracing::debug!(?self.ty, %ok, "Func::drop"),
+                Err(err) => tracing::debug!(?self.ty, %err, "Func::drop"),
+            }
+        })
+    }
 }
 
 impl WasmFunc<Engine> for Func {

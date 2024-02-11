@@ -19,6 +19,20 @@ pub struct Module {
     parsed: Arc<ParsedModule>,
 }
 
+impl Drop for Module {
+    fn drop(&mut self) {
+        Python::with_gil(|py| {
+            let module = self.module.as_ref(py);
+            let _res = module.call_method0(intern!(py, "destroy"));
+            #[cfg(feature = "tracing")]
+            match _res {
+                Ok(ok) => tracing::debug!(%ok, "Module::drop"),
+                Err(err) => tracing::debug!(%err, "Module::drop"),
+            }
+        })
+    }
+}
+
 impl WasmModule<Engine> for Module {
     fn new(_engine: &Engine, mut stream: impl std::io::Read) -> anyhow::Result<Self> {
         Python::with_gil(|py| {

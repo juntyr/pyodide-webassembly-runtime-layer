@@ -18,6 +18,20 @@ pub struct Global {
     ty: GlobalType,
 }
 
+impl Drop for Global {
+    fn drop(&mut self) {
+        Python::with_gil(|py| {
+            let global = self.value.as_ref(py);
+            let _res = global.call_method0(intern!(py, "destroy"));
+            #[cfg(feature = "tracing")]
+            match _res {
+                Ok(ok) => tracing::debug!(?self.ty, %ok, "Global::drop"),
+                Err(err) => tracing::debug!(?self.ty, %err, "Global::drop"),
+            }
+        })
+    }
+}
+
 impl WasmGlobal<Engine> for Global {
     fn new(_ctx: impl AsContextMut<Engine>, value: Value<Engine>, mutable: bool) -> Self {
         Python::with_gil(|py| -> Result<Self, PyErr> {

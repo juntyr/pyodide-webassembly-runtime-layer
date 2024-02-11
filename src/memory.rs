@@ -22,6 +22,20 @@ pub struct Memory {
     ty: MemoryType,
 }
 
+impl Drop for Memory {
+    fn drop(&mut self) {
+        Python::with_gil(|py| {
+            let memory = self.value.as_ref(py);
+            let _res = memory.call_method0(intern!(py, "destroy"));
+            #[cfg(feature = "tracing")]
+            match _res {
+                Ok(ok) => tracing::debug!(?self.ty, %ok, "Memory::drop"),
+                Err(err) => tracing::debug!(?self.ty, %err, "Memory::drop"),
+            }
+        })
+    }
+}
+
 impl WasmMemory<Engine> for Memory {
     fn new(_ctx: impl AsContextMut<Engine>, ty: MemoryType) -> anyhow::Result<Self> {
         Python::with_gil(|py| {

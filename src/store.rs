@@ -149,7 +149,10 @@ impl<T: Clone> Clone for Store<T> {
 
 impl<T> Drop for Store<T> {
     fn drop(&mut self) {
-        std::mem::drop(unsafe { Box::from_raw(self.inner.as_ptr::<T>()) })
+        std::mem::drop(unsafe { Box::from_raw(self.inner.as_ptr::<T>()) });
+
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Store::drop");
     }
 }
 

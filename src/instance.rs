@@ -21,9 +21,23 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct Instance {
     /// The inner instance
-    _instance: Py<PyAny>,
+    instance: Py<PyAny>,
     /// The exports of the instance
     exports: FxHashMap<String, Extern<Engine>>,
+}
+
+impl Drop for Instance {
+    fn drop(&mut self) {
+        Python::with_gil(|py| {
+            let instance = self.instance.as_ref(py);
+            let _res = instance.call_method0(intern!(py, "destroy"));
+            #[cfg(feature = "tracing")]
+            match _res {
+                Ok(ok) => tracing::debug!(%ok, "Instance::drop"),
+                Err(err) => tracing::debug!(%err, "Instance::drop"),
+            }
+        })
+    }
 }
 
 impl WasmInstance<Engine> for Instance {
@@ -49,7 +63,7 @@ impl WasmInstance<Engine> for Instance {
             let exports = process_exports(exports, module)?;
 
             Ok(Self {
-                _instance: instance.into_py(py),
+                instance: instance.into_py(py),
                 exports,
             })
         })
