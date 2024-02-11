@@ -26,7 +26,7 @@ impl WasmTable<Engine> for Table {
     ) -> anyhow::Result<Self> {
         Python::with_gil(|py| -> anyhow::Result<Self> {
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Table::new", ?ty, ?init).entered();
+            tracing::debug!(name: "Table::new", ?ty, ?init);
 
             let desc = PyDict::new(py);
             desc.set_item(intern!(py, "element"), ty.element().as_js_descriptor())?;
@@ -61,7 +61,7 @@ impl WasmTable<Engine> for Table {
             let table = self.table.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Table::size", %table, ?self.ty).entered();
+            tracing::debug!(name: "Table::size", %table, ?self.ty);
 
             table.getattr(intern!(py, "length"))?.extract()
         })
@@ -79,8 +79,7 @@ impl WasmTable<Engine> for Table {
             let table = self.table.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span =
-                tracing::debug_span!("Table::grow", %table, ?self.ty, delta, ?init).entered();
+            tracing::debug!(name: "Table::grow", %table, ?self.ty, delta, ?init);
 
             // init is passed to WebAssembly table, so it must be turned into JS
             let init = init.to_py_js(py)?;
@@ -99,7 +98,7 @@ impl WasmTable<Engine> for Table {
             let table = self.table.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Table::get", %table, ?self.ty, index).entered();
+            tracing::debug!(name: "Table::get", %table, ?self.ty, index);
 
             let value = table.call_method1(intern!(py, "get"), (index,)).ok()?;
 
@@ -118,8 +117,7 @@ impl WasmTable<Engine> for Table {
             let table = self.table.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span =
-                tracing::debug_span!("Table::set", %table, ?self.ty, index, ?value).entered();
+            tracing::debug!(name: "Table::set", %table, ?self.ty, index, ?value);
 
             // value is passed to WebAssembly global, so it must be turned into JS
             let value = value.to_py_js(py)?;
@@ -134,7 +132,7 @@ impl WasmTable<Engine> for Table {
 impl ToPy for Table {
     fn to_py(&self, py: Python) -> Py<PyAny> {
         #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Table::to_py", %self.table, ?self.ty).entered();
+        tracing::trace!(name: "Table::to_py", table = %self.table, ?self.ty);
 
         self.table.clone_ref(py)
     }
@@ -150,7 +148,7 @@ impl Table {
         }
 
         #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Table::from_exported_table", %value, ?ty).entered();
+        tracing::debug!(name: "Table::from_exported_table", %value, ?ty);
 
         let table_length: u32 = value.getattr(intern!(py, "length"))?.extract()?;
 

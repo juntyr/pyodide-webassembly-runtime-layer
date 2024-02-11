@@ -1,11 +1,6 @@
-use std::{any::TypeId, marker::PhantomData};
+use std::{any::TypeId, marker::PhantomData, sync::Weak};
 
-use pyo3::{
-    intern,
-    prelude::*,
-    types::{IntoPyDict, PyDict, PyTuple},
-    PyTypeInfo,
-};
+use pyo3::{prelude::*, types::PyTuple, PyTypeInfo};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmFunc, WasmStoreContext},
     FuncType,
@@ -37,69 +32,69 @@ impl WasmFunc<Engine> for Func {
     ) -> Self {
         Python::with_gil(|py| -> Result<Self, PyErr> {
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Func::new").entered();
+            tracing::debug!("Func::new");
 
-            let store: StoreContextMut<T> = ctx.as_context_mut();
+            let mut store: StoreContextMut<T> = ctx.as_context_mut();
+
+            let weak_store = store.as_weak_proof();
 
             let user_state = non_static_type_id(store.data());
             let ty_clone = ty.clone();
 
-            let func = Box::new(
-                move |args: &PyTuple, ctx: &mut PyStoreContextMut| -> Result<Py<PyAny>, PyErr> {
-                    assert_eq!(ctx.user_state, user_state);
+            let func = Box::new(move |args: &PyTuple| -> Result<Py<PyAny>, PyErr> {
+                let mut strong_store = Weak::upgrade(&weak_store)
+                    .expect("host func must only be called while its store is alive");
 
-                    // Safety:
-                    //  - type casting: we just checked the type id
-                    //  - mutable reference:
-                    //    - PyStoreContextMut::ptr is constructed from a mutable
-                    //      reference
-                    //    - we ensure that PyStoreContextMut is only accessed for
-                    //      the lifetime of that mutable borrow
-                    let store: &mut StoreContextMut<T> = unsafe { &mut *ctx.ptr.cast() };
+                // Safety:
+                //
+                // - The proof is constructed from a mutable store context
+                // - Calling a host function (from the host or from WASM)
+                //   provides that call with a mutable reborrow of the
+                //   store context
+                let store = unsafe { StoreContextMut::from_proof_unchecked(&mut strong_store) };
 
-                    let py = args.py();
-                    let ty = &ty_clone;
+                let py = args.py();
+                let ty = &ty_clone;
 
-                    let args = ty
-                        .params()
-                        .iter()
-                        .zip(args.iter())
-                        .map(|(ty, arg)| Value::from_py_typed(arg, ty))
-                        .collect::<Result<Vec<_>, _>>()?;
-                    let mut results = vec![Value::I32(0); ty.results().len()];
+                let args = ty
+                    .params()
+                    .iter()
+                    .zip(args.iter())
+                    .map(|(ty, arg)| Value::from_py_typed(arg, ty))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let mut results = vec![Value::I32(0); ty.results().len()];
 
-                    #[cfg(feature = "tracing")]
-                    let _span = tracing::debug_span!("call_host", ?args, ?ty).entered();
+                #[cfg(feature = "tracing")]
+                let _span = tracing::debug_span!("call_host", ?args, ?ty).entered();
 
-                    match func(store.as_context_mut(), &args, &mut results) {
-                        Ok(()) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::debug!(?results, "result");
-                        }
-                        Err(err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("{err:?}");
-                            return Err(err.into());
-                        }
+                match func(store, &args, &mut results) {
+                    Ok(()) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!(?results, "result");
                     }
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("{err:?}");
+                        return Err(err.into());
+                    }
+                }
 
-                    let results = match results.as_slice() {
-                        [] => py.None(),
-                        [res] => res.to_py(py),
-                        results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))
-                            .as_ref()
-                            .into_py(py),
-                    };
+                let results = match results.as_slice() {
+                    [] => py.None(),
+                    [res] => res.to_py(py),
+                    results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))
+                        .as_ref()
+                        .into_py(py),
+                };
 
-                    Ok(results)
-                },
-            );
+                Ok(results)
+            });
 
             let func = Py::new(
                 py,
                 PyFunc {
-                    _func: func,
-                    ty: ty.clone(),
+                    func,
+                    _ty: ty.clone(),
                 },
             )?;
 
@@ -123,7 +118,11 @@ impl WasmFunc<Engine> for Func {
         results: &mut [Value<Engine>],
     ) -> anyhow::Result<()> {
         Python::with_gil(|py| {
-            let mut store: StoreContextMut<_> = ctx.as_context_mut();
+            let store: StoreContextMut<_> = ctx.as_context_mut();
+
+            if let Some(user_state) = self.user_state {
+                assert_eq!(user_state, non_static_type_id(store.data()));
+            }
 
             let func = self.func.as_ref(py);
 
@@ -141,21 +140,7 @@ impl WasmFunc<Engine> for Func {
                 .collect::<Result<Vec<_>, _>>()?;
             let args = PyTuple::new(py, args);
 
-            let kwargs = match self.user_state {
-                None => None,
-                Some(user_state) => {
-                    assert_eq!(user_state, non_static_type_id(store.data()));
-
-                    let store = PyStoreContextMut {
-                        ptr: std::ptr::from_mut(&mut store).cast(),
-                        user_state,
-                    };
-
-                    Some([(intern!(py, "ctx"), Py::new(py, store)?)].into_py_dict(py))
-                }
-            };
-
-            let res = func.call(args, kwargs)?;
+            let res = func.call1(args)?;
 
             #[cfg(feature = "tracing")]
             tracing::debug!(%res, ?self.ty);
@@ -189,13 +174,15 @@ impl WasmFunc<Engine> for Func {
 impl ToPy for Func {
     fn to_py(&self, py: Python) -> Py<PyAny> {
         #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Func::to_py", %self.func, ?self.ty).entered();
+        tracing::trace!(name: "Func::to_py", func = %self.func, ?self.ty);
+
         self.func.clone_ref(py)
     }
 
     fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Func::to_py_js", %self.func, ?self.ty).entered();
+        tracing::trace!(name: "Func::to_py_js", func = %self.func, ?self.ty);
+
         let func = py_to_js_proxy(py, self.func.as_ref(py))?;
         Ok(func.into_py(py))
     }
@@ -216,8 +203,7 @@ impl Func {
         }
 
         #[cfg(feature = "tracing")]
-        let _span =
-            tracing::debug_span!("Func::from_exported_function", %value, ?signature).entered();
+        tracing::debug!(name: "Func::from_exported_function", %value, ?signature);
 
         Ok(Self {
             func: value.into_py(py),
@@ -227,48 +213,21 @@ impl Func {
     }
 }
 
-#[pyclass]
-struct PyStoreContextMut {
-    ptr: *mut StoreContextMut<'static, ()>,
-    user_state: TypeId,
-}
-
-unsafe impl Send for PyStoreContextMut {}
-unsafe impl Sync for PyStoreContextMut {}
-
 #[pyclass(frozen)]
 struct PyFunc {
     #[allow(clippy::type_complexity)]
-    _func: Box<
-        dyn 'static
-            + Send
-            + Sync
-            + Fn(&PyTuple, &mut PyStoreContextMut) -> Result<Py<PyAny>, PyErr>,
-    >,
-    ty: FuncType,
+    func: Box<dyn 'static + Send + Sync + Fn(&PyTuple) -> Result<Py<PyAny>, PyErr>>,
+    _ty: FuncType,
 }
 
 #[pymethods]
 impl PyFunc {
-    // #[pyo3(signature = (*args, ctx))]
-    // fn __call__(&self, args: &PyTuple, ctx: &mut PyStoreContextMut) -> Result<Py<PyAny>, PyErr> {
-    //     (self.func)(args, ctx)
-    // }
-
-    #[pyo3(signature = (*args, **kwargs))]
-    fn __call__(&self, args: &PyTuple, kwargs: Option<&PyDict>) -> Result<Py<PyAny>, PyErr> {
+    #[pyo3(signature = (*args))]
+    fn __call__(&self, args: &PyTuple) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("call_trampoline", ?self.ty).entered();
+        let _span = tracing::debug_span!("call_trampoline", ?self._ty, %args).entered();
 
-        #[cfg(feature = "tracing")]
-        tracing::debug!(%args);
-
-        #[cfg(feature = "tracing")]
-        if let Some(kwargs) = kwargs {
-            tracing::debug!(%kwargs);
-        }
-
-        Ok(args.py().None())
+        (self.func)(args)
     }
 }
 

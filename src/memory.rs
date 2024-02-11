@@ -26,7 +26,7 @@ impl WasmMemory<Engine> for Memory {
     fn new(_ctx: impl AsContextMut<Engine>, ty: MemoryType) -> anyhow::Result<Self> {
         Python::with_gil(|py| {
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Memory::new", ?ty).entered();
+            tracing::debug!(name: "Memory::new", ?ty);
 
             let desc = PyDict::new(py);
             desc.set_item(intern!(py, "initial"), ty.initial_pages())?;
@@ -55,8 +55,7 @@ impl WasmMemory<Engine> for Memory {
             let memory = self.value.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span =
-                tracing::debug_span!("Memory::grow", %memory, ?self.ty, additional).entered();
+            tracing::debug!(name: "Memory::grow", %memory, ?self.ty, additional);
 
             let old_pages = memory
                 .call_method1(intern!(py, "grow"), (additional,))?
@@ -73,7 +72,7 @@ impl WasmMemory<Engine> for Memory {
             let memory = self.value.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("Memory::current_pages", %memory, ?self.ty).entered();
+            tracing::debug!(name: "Memory::current_pages", %memory, ?self.ty);
 
             let byte_len: u64 = memory
                 .getattr(intern!(py, "buffer"))?
@@ -96,9 +95,7 @@ impl WasmMemory<Engine> for Memory {
             let memory = self.value.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span =
-                tracing::debug_span!("Memory::read", %memory, ?self.ty, offset, len = buffer.len())
-                    .entered();
+            tracing::debug!(name: "Memory::read", %memory, ?self.ty, offset, len = buffer.len());
 
             let memory = memory.getattr(intern!(py, "buffer"))?;
             let memory = py
@@ -123,17 +120,13 @@ impl WasmMemory<Engine> for Memory {
             let memory = self.value.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            let _span =
-                tracing::debug_span!("Memory::write", %memory, ?self.ty, offset, ?buffer).entered();
+            tracing::debug!(name: "Memory::write", %memory, ?self.ty, offset, ?buffer);
 
             let memory = memory.getattr(intern!(py, "buffer"))?;
             let memory = py
                 .import(intern!(py, "js"))?
                 .getattr(intern!(py, "Uint8Array"))?
                 .call_method1(intern!(py, "new"), (memory, offset, buffer.len()))?;
-
-            #[cfg(feature = "tracing")]
-            tracing::debug!("writing {buffer:?} into guest");
 
             memory.call_method1(intern!(py, "assign"), (buffer,))?;
 
@@ -145,7 +138,7 @@ impl WasmMemory<Engine> for Memory {
 impl ToPy for Memory {
     fn to_py(&self, py: Python) -> Py<PyAny> {
         #[cfg(feature = "tracing")]
-        let _span = tracing::trace_span!("Memory::to_py", %self.value, ?self.ty).entered();
+        tracing::trace!(name: "Memory::to_py", value = %self.value, ?self.ty);
 
         self.value.clone_ref(py)
     }
@@ -161,7 +154,7 @@ impl Memory {
         }
 
         #[cfg(feature = "tracing")]
-        let _span = tracing::debug_span!("Memory::from_exported_memory", %value, ?ty).entered();
+        tracing::debug!(name: "Memory::from_exported_memory", %value, ?ty);
 
         Ok(Self {
             value: value.into_py(py),
