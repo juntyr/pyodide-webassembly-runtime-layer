@@ -26,7 +26,7 @@ impl WasmTable<Engine> for Table {
     ) -> anyhow::Result<Self> {
         Python::with_gil(|py| -> anyhow::Result<Self> {
             #[cfg(feature = "tracing")]
-            tracing::debug!(name: "Table::new", ?ty, ?init);
+            tracing::debug!(?ty, ?init, "Table::new");
 
             let desc = PyDict::new(py);
             desc.set_item(intern!(py, "element"), ty.element().as_js_descriptor())?;
@@ -61,7 +61,7 @@ impl WasmTable<Engine> for Table {
             let table = self.table.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            tracing::debug!(name: "Table::size", %table, ?self.ty);
+            tracing::debug!(%table, ?self.ty, "Table::size");
 
             table.getattr(intern!(py, "length"))?.extract()
         })
@@ -79,7 +79,7 @@ impl WasmTable<Engine> for Table {
             let table = self.table.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            tracing::debug!(name: "Table::grow", %table, ?self.ty, delta, ?init);
+            tracing::debug!(%table, ?self.ty, delta, ?init, "Table::grow");
 
             // init is passed to WebAssembly table, so it must be turned into JS
             let init = init.to_py_js(py)?;
@@ -98,7 +98,7 @@ impl WasmTable<Engine> for Table {
             let table = self.table.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            tracing::debug!(name: "Table::get", %table, ?self.ty, index);
+            tracing::debug!(%table, ?self.ty, index, "Table::get");
 
             let value = table.call_method1(intern!(py, "get"), (index,)).ok()?;
 
@@ -117,7 +117,7 @@ impl WasmTable<Engine> for Table {
             let table = self.table.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            tracing::debug!(name: "Table::set", %table, ?self.ty, index, ?value);
+            tracing::debug!(%table, ?self.ty, index, ?value, "Table::set");
 
             // value is passed to WebAssembly global, so it must be turned into JS
             let value = value.to_py_js(py)?;
@@ -132,7 +132,7 @@ impl WasmTable<Engine> for Table {
 impl ToPy for Table {
     fn to_py(&self, py: Python) -> Py<PyAny> {
         #[cfg(feature = "tracing")]
-        tracing::trace!(name: "Table::to_py", table = %self.table, ?self.ty);
+        tracing::trace!(table = %self.table, ?self.ty, "Table::to_py");
 
         self.table.clone_ref(py)
     }
@@ -148,7 +148,7 @@ impl Table {
         }
 
         #[cfg(feature = "tracing")]
-        tracing::debug!(name: "Table::from_exported_table", %value, ?ty);
+        tracing::debug!(%value, ?ty, "Table::from_exported_table");
 
         let table_length: u32 = value.getattr(intern!(py, "length"))?.extract()?;
 

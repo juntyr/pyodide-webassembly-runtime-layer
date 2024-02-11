@@ -127,7 +127,7 @@ fn process_exports(
             let (name, value): (String, &PyAny) = entry.extract()?;
 
             #[cfg(feature = "tracing")]
-            tracing::trace!(name: "process_export", ?name, %value);
+            tracing::trace!(?name, %value, "process_export");
 
             let signature = module.get_export(&name).expect("export signature");
 

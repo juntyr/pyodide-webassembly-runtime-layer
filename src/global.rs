@@ -22,7 +22,7 @@ impl WasmGlobal<Engine> for Global {
     fn new(_ctx: impl AsContextMut<Engine>, value: Value<Engine>, mutable: bool) -> Self {
         Python::with_gil(|py| -> Result<Self, PyErr> {
             #[cfg(feature = "tracing")]
-            tracing::debug!(name: "Global::new", ?value, mutable);
+            tracing::debug!(?value, mutable, "Global::new");
 
             let ty = GlobalType::new(ValueExt::ty(&value), mutable);
 
@@ -61,7 +61,7 @@ impl WasmGlobal<Engine> for Global {
         Python::with_gil(|py| {
             let global = self.value.as_ref(py);
             #[cfg(feature = "tracing")]
-            tracing::debug!(name: "Global::set", %global, ?self.ty, ?new_value);
+            tracing::debug!(%global, ?self.ty, ?new_value, "Global::set");
 
             // value is passed to WebAssembly global, so it must be turned into JS
             let new_value = new_value.to_py_js(py)?;
@@ -77,7 +77,7 @@ impl WasmGlobal<Engine> for Global {
             let global = self.value.as_ref(py);
 
             #[cfg(feature = "tracing")]
-            tracing::debug!(name: "Global::get", %global, ?self.ty);
+            tracing::debug!(%global, ?self.ty, "Global::get");
 
             let value = global.getattr(intern!(py, "value"))?;
 
@@ -90,7 +90,7 @@ impl WasmGlobal<Engine> for Global {
 impl ToPy for Global {
     fn to_py(&self, py: Python) -> Py<PyAny> {
         #[cfg(feature = "tracing")]
-        tracing::trace!(name: "Global::to_py", value = %self.value, ?self.ty);
+        tracing::trace!(value = %self.value, ?self.ty, "Global::to_py");
 
         self.value.clone_ref(py)
     }
@@ -109,7 +109,7 @@ impl Global {
         }
 
         #[cfg(feature = "tracing")]
-        tracing::debug!(name: "Global::from_exported_global", %value, ?signature);
+        tracing::debug!(%value, ?signature, "Global::from_exported_global");
 
         Ok(Self {
             value: value.into_py(py),

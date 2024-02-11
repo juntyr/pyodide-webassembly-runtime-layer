@@ -174,14 +174,14 @@ impl WasmFunc<Engine> for Func {
 impl ToPy for Func {
     fn to_py(&self, py: Python) -> Py<PyAny> {
         #[cfg(feature = "tracing")]
-        tracing::trace!(name: "Func::to_py", func = %self.func, ?self.ty);
+        tracing::trace!(func = %self.func, ?self.ty, "Func::to_py");
 
         self.func.clone_ref(py)
     }
 
     fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
-        tracing::trace!(name: "Func::to_py_js", func = %self.func, ?self.ty);
+        tracing::trace!(func = %self.func, ?self.ty, "Func::to_py_js");
 
         let func = py_to_js_proxy(py, self.func.as_ref(py))?;
         Ok(func.into_py(py))
@@ -203,7 +203,7 @@ impl Func {
         }
 
         #[cfg(feature = "tracing")]
-        tracing::debug!(name: "Func::from_exported_function", %value, ?signature);
+        tracing::debug!(%value, ?signature, "Func::from_exported_function");
 
         Ok(Self {
             func: value.into_py(py),

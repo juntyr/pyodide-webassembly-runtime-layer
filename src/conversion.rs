@@ -25,7 +25,7 @@ pub trait ToPy {
 impl ToPy for Value<Engine> {
     fn to_py(&self, py: Python) -> Py<PyAny> {
         #[cfg(feature = "tracing")]
-        tracing::trace!(name: "Value::to_py", ty = ?self.ty());
+        tracing::trace!(ty = ?self.ty(), "Value::to_py");
 
         match self {
             Value::I32(v) => v.to_object(py),
@@ -41,7 +41,7 @@ impl ToPy for Value<Engine> {
 
     fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
-        tracing::trace!(name: "Value::to_py_js", ty = ?self.ty());
+        tracing::trace!(ty = ?self.ty(), "Value::to_py_js");
 
         if let Value::FuncRef(Some(func)) = self {
             let func = func.to_py(py).into_ref(py);
