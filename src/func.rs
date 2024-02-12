@@ -216,20 +216,8 @@ impl Func {
         #[cfg(feature = "tracing")]
         tracing::debug!(%value, ?signature, "Func::from_exported_function");
 
-        let func = Box::new(move |args: &PyTuple| -> Result<Py<PyAny>, PyErr> {
-            Ok(args.py().None())
-        });
-        let func = Py::new(
-            py,
-            PyFunc {
-                func,
-                _ty: signature.clone(),
-            },
-        )?;
-        let func = py_to_js_proxy(py, func.into_ref(py))?.into_py(py);
-
         Ok(Self {
-            func, //value.into_py(py),
+            func: value.into_py(py),
             ty: signature,
             user_state: None,
         })
@@ -250,7 +238,9 @@ impl PyFunc {
         #[cfg(feature = "tracing")]
         let _span = tracing::debug_span!("call_trampoline", ?self._ty, %args).entered();
 
-        let result = (self.func)(args)?;
+        let _func = &self.func;
+
+        let result = py.None();//(self.func)(args)?;
         let result = py_to_js(py, result.into_ref(py))?.into_py(py);
 
         Ok(result)
