@@ -7,7 +7,7 @@ use wasm_runtime_layer::{
 };
 
 use crate::{
-    conversion::{py_to_js_proxy, ToPy, ValueExt},
+    conversion::{py_to_js, py_to_js_proxy, ToPy, ValueExt},
     Engine, StoreContextMut,
 };
 
@@ -234,11 +234,14 @@ struct PyFunc {
 #[pymethods]
 impl PyFunc {
     #[pyo3(signature = (*args))]
-    fn __call__(&self, args: &PyTuple) -> Result<Py<PyAny>, PyErr> {
+    fn __call__(&self, py: Python, args: &PyTuple) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
         let _span = tracing::debug_span!("call_trampoline", ?self._ty, %args).entered();
 
-        (self.func)(args)
+        let result = (self.func)(args)?;
+        let result = py_to_js(py, result.into_ref(py))?.into_py(py);
+
+        Ok(result)
     }
 }
 
