@@ -194,3 +194,18 @@ pub fn py_dict_to_js_object<'py>(py: Python<'py>, dict: &'py PyDict) -> Result<&
             ),
         )
 }
+
+pub fn py_to_weak_js<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py PyAny, PyErr> {
+    let create_weak_ref_function = py
+        .import(intern!(py, "pyodide"))?
+        .getattr(intern!(py, "code"))?
+        .getattr(intern!(py, "run_js"))?
+        .call1((
+            "function createWeakRefFunction(func){ let weak = new WeakRef(func); function weakRefFunction(...args) { return weak.deref()(...args); }; } createWeakRefFunction",
+        ))?;
+
+    py_to_js(
+        py,
+        create_weak_ref_function.call1((py_to_js(py, object)?,))?,
+    )
+}
