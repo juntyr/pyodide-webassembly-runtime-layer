@@ -187,8 +187,7 @@ impl ToPy for Func {
         #[cfg(feature = "tracing")]
         tracing::trace!(func = %self.func, ?self.ty, "Func::to_py");
 
-        // self.func.clone_ref(py)
-        py.None()
+        self.func.clone_ref(py)
     }
 
     // fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
@@ -217,8 +216,20 @@ impl Func {
         #[cfg(feature = "tracing")]
         tracing::debug!(%value, ?signature, "Func::from_exported_function");
 
+        let func = Box::new(move |args: &PyTuple| -> Result<Py<PyAny>, PyErr> {
+            Ok(args.py().None())
+        });
+        let func = Py::new(
+            py,
+            PyFunc {
+                func,
+                _ty: signature.clone(),
+            },
+        )?;
+        let func = py_to_js_proxy(py, func.into_ref(py))?.into_py(py);
+
         Ok(Self {
-            func: value.into_py(py),
+            func, //value.into_py(py),
             ty: signature,
             user_state: None,
         })
