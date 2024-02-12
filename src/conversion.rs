@@ -201,7 +201,7 @@ pub fn py_to_weak_js<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py Py
         .getattr(intern!(py, "code"))?
         .getattr(intern!(py, "run_js"))?
         .call1((
-            "function createWeakRefFunction(func){ let weak = new WeakRef(func); function weakRefFunction(...args) { return weak.deref()(...args); }; } createWeakRefFunction",
+            "function createWeakRefFunction(func){ let weak = new WeakRef(func); function weakRefFunction(...args) { return weak.deref()(...args); }; return weakRefFunction; } createWeakRefFunction",
         ))?;
 
     py_to_js(
