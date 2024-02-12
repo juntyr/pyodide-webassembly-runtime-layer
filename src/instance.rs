@@ -116,7 +116,15 @@ fn create_imports_object<'py>(
         .map(|(module, imports)| (module, imports.into_py_dict(py)))
         .into_py_dict(py);
 
-    py_dict_to_js_object(py, imports)
+    let imports = py_dict_to_js_object(py, imports)?;
+
+    py
+        .import(intern!(py, "js"))?
+        .getattr(intern!(py, "console"))?
+        .getattr(intern!(py, "log"))?
+        .call1((imports,))?;
+
+    Ok(imports)
 }
 
 /// Processes a wasm module's exports into a hashmap
