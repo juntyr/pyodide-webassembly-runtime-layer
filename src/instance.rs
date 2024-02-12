@@ -29,13 +29,9 @@ pub struct Instance {
 impl Drop for Instance {
     fn drop(&mut self) {
         Python::with_gil(|py| {
-            let instance = self.instance.as_ref(py);
-            let _res = instance.call_method0(intern!(py, "destroy"));
+            let _instance = self.instance.as_ref(py);
             #[cfg(feature = "tracing")]
-            match _res {
-                Ok(ok) => tracing::debug!(%ok, "Instance::drop"),
-                Err(err) => tracing::debug!(%err, "Instance::drop"),
-            }
+            tracing::debug!(refcnt = _instance.get_refcnt(), "Instance::drop");
         })
     }
 }
@@ -96,8 +92,8 @@ fn create_imports_object<'py>(
     let _span = tracing::debug_span!("process_imports").entered();
 
     let imports = imports
-        .into_iter()
-        .map(|((module, name), import)| -> Result<_, PyErr> {
+        .iter()
+        .map(|(module, name, import)| -> Result<_, PyErr> {
             #[cfg(feature = "tracing")]
             tracing::trace!(?module, ?name, ?import, "import");
             // import is passed to WebAssembly instantiation, so it must be turned into JS
@@ -109,7 +105,7 @@ fn create_imports_object<'py>(
             Ok((module, (name, import)))
         })
         .try_fold(
-            BTreeMap::<String, Vec<_>>::new(),
+            BTreeMap::<&str, Vec<_>>::new(),
             |mut acc, elem| -> Result<_, PyErr> {
                 let (module, value) = elem?;
                 acc.entry(module).or_default().push(value);

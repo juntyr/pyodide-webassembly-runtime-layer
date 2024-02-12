@@ -25,13 +25,9 @@ pub struct Memory {
 impl Drop for Memory {
     fn drop(&mut self) {
         Python::with_gil(|py| {
-            let memory = self.value.as_ref(py);
-            let _res = memory.call_method0(intern!(py, "destroy"));
+            let _memory = self.value.as_ref(py);
             #[cfg(feature = "tracing")]
-            match _res {
-                Ok(ok) => tracing::debug!(?self.ty, %ok, "Memory::drop"),
-                Err(err) => tracing::debug!(?self.ty, %err, "Memory::drop"),
-            }
+            tracing::debug!(?self.ty, refcnt = _memory.get_refcnt(), "Memory::drop");
         })
     }
 }

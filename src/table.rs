@@ -21,13 +21,9 @@ pub struct Table {
 impl Drop for Table {
     fn drop(&mut self) {
         Python::with_gil(|py| {
-            let table = self.table.as_ref(py);
-            let _res = table.call_method0(intern!(py, "destroy"));
+            let _table = self.table.as_ref(py);
             #[cfg(feature = "tracing")]
-            match _res {
-                Ok(ok) => tracing::debug!(?self.ty, %ok, "Table::drop"),
-                Err(err) => tracing::debug!(?self.ty, %err, "Table::drop"),
-            }
+            tracing::debug!(?self.ty, refcnt = _table.get_refcnt(), "Table::drop");
         })
     }
 }

@@ -21,13 +21,9 @@ pub struct Global {
 impl Drop for Global {
     fn drop(&mut self) {
         Python::with_gil(|py| {
-            let global = self.value.as_ref(py);
-            let _res = global.call_method0(intern!(py, "destroy"));
+            let _global = self.value.as_ref(py);
             #[cfg(feature = "tracing")]
-            match _res {
-                Ok(ok) => tracing::debug!(?self.ty, %ok, "Global::drop"),
-                Err(err) => tracing::debug!(?self.ty, %err, "Global::drop"),
-            }
+            tracing::debug!(?self.ty, refcnt = _global.get_refcnt(), "Global::drop");
         })
     }
 }

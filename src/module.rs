@@ -22,13 +22,9 @@ pub struct Module {
 impl Drop for Module {
     fn drop(&mut self) {
         Python::with_gil(|py| {
-            let module = self.module.as_ref(py);
-            let _res = module.call_method0(intern!(py, "destroy"));
+            let _module = self.module.as_ref(py);
             #[cfg(feature = "tracing")]
-            match _res {
-                Ok(ok) => tracing::debug!(%ok, "Module::drop"),
-                Err(err) => tracing::debug!(%err, "Module::drop"),
-            }
+            tracing::debug!(refcnt = _module.get_refcnt(), "Module::drop");
         })
     }
 }

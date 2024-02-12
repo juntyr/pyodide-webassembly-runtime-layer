@@ -39,20 +39,20 @@ impl ToPy for Value<Engine> {
         }
     }
 
-    fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
-        #[cfg(feature = "tracing")]
-        tracing::trace!(ty = ?self.ty(), "Value::to_py_js");
+    // fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
+    //     #[cfg(feature = "tracing")]
+    //     tracing::trace!(ty = ?self.ty(), "Value::to_py_js");
 
-        if let Value::FuncRef(Some(func)) = self {
-            let func = func.to_py(py).into_ref(py);
-            let func = py_to_js_proxy(py, func)?;
-            return Ok(func.into_py(py));
-        }
+    //     if let Value::FuncRef(Some(func)) = self {
+    //         let func = func.to_py(py).into_ref(py);
+    //         let func = py_to_js_proxy(py, func)?;
+    //         return Ok(func.into_py(py));
+    //     }
 
-        let object = self.to_py(py).into_ref(py);
-        let object = py_to_js(py, object)?;
-        Ok(object.into_py(py))
-    }
+    //     let object = self.to_py(py).into_ref(py);
+    //     let object = py_to_js(py, object)?;
+    //     Ok(object.into_py(py))
+    // }
 }
 
 impl ToPy for Extern<Engine> {
@@ -68,20 +68,20 @@ impl ToPy for Extern<Engine> {
         }
     }
 
-    fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
-        #[cfg(feature = "tracing")]
-        tracing::trace!("Extern::to_py_js");
+    // fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
+    //     #[cfg(feature = "tracing")]
+    //     tracing::trace!("Extern::to_py_js");
 
-        if let Extern::Func(func) = self {
-            let func = func.to_py(py).into_ref(py);
-            let func = py_to_js_proxy(py, func)?;
-            return Ok(func.into_py(py));
-        }
+    //     if let Extern::Func(func) = self {
+    //         let func = func.to_py(py).into_ref(py);
+    //         let func = py_to_js_proxy(py, func)?;
+    //         return Ok(func.into_py(py));
+    //     }
 
-        let object = self.to_py(py).into_ref(py);
-        let object = py_to_js(py, object)?;
-        Ok(object.into_py(py))
-    }
+    //     let object = self.to_py(py).into_ref(py);
+    //     let object = py_to_js(py, object)?;
+    //     Ok(object.into_py(py))
+    // }
 }
 
 pub trait ValueExt: Sized {

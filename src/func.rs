@@ -1,6 +1,6 @@
 use std::{any::TypeId, marker::PhantomData, sync::Weak};
 
-use pyo3::{intern, prelude::*, types::PyTuple, PyTypeInfo};
+use pyo3::{prelude::*, types::PyTuple, PyTypeInfo};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmFunc, WasmStoreContext},
     FuncType,
@@ -24,13 +24,9 @@ pub struct Func {
 impl Drop for Func {
     fn drop(&mut self) {
         Python::with_gil(|py| {
-            let func = self.func.as_ref(py);
-            let _res = func.call_method0(intern!(py, "destroy"));
+            let _func = self.func.as_ref(py);
             #[cfg(feature = "tracing")]
-            match _res {
-                Ok(ok) => tracing::debug!(?self.ty, %ok, "Func::drop"),
-                Err(err) => tracing::debug!(?self.ty, %err, "Func::drop"),
-            }
+            tracing::debug!(?self.ty, refcnt = _func.get_refcnt(), "Func::drop");
         })
     }
 }
@@ -111,9 +107,10 @@ impl WasmFunc<Engine> for Func {
                     _ty: ty.clone(),
                 },
             )?;
+            let func = py_to_js_proxy(py, func.into_ref(py))?.into_py(py);
 
             Ok(Self {
-                func: func.into_ref(py).into_py(py),
+                func,
                 ty,
                 user_state: Some(user_state),
             })
@@ -193,13 +190,13 @@ impl ToPy for Func {
         self.func.clone_ref(py)
     }
 
-    fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
-        #[cfg(feature = "tracing")]
-        tracing::trace!(func = %self.func, ?self.ty, "Func::to_py_js");
+    // fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
+    //     #[cfg(feature = "tracing")]
+    //     tracing::trace!(func = %self.func, ?self.ty, "Func::to_py_js");
 
-        let func = py_to_js_proxy(py, self.func.as_ref(py))?;
-        Ok(func.into_py(py))
-    }
+    //     let func = py_to_js_proxy(py, self.func.as_ref(py))?;
+    //     Ok(func.into_py(py))
+    // }
 }
 
 impl Func {
@@ -242,6 +239,13 @@ impl PyFunc {
         let _span = tracing::debug_span!("call_trampoline", ?self._ty, %args).entered();
 
         (self.func)(args)
+    }
+}
+
+impl Drop for PyFunc {
+    fn drop(&mut self) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(?self._ty, "PyFunc::drop");
     }
 }
 
