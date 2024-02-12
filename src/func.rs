@@ -16,9 +16,25 @@ use crate::{
 pub struct Func {
     /// The inner function
     func: Py<PyAny>,
+    dummy_func: Py<PyAny>,
     /// The function signature
     ty: FuncType,
+    /// The user state type of the context
     user_state: Option<TypeId>,
+}
+
+fn dummy_func(py: Python, ty: FuncType) -> Result<Py<PyAny>, PyErr> {
+    let func = Box::new(move |args: &PyTuple| -> Result<Py<PyAny>, PyErr> {
+        Ok(args.py().None())
+    });
+    let func = Py::new(
+        py,
+        PyFunc {
+            func,
+            _ty: ty,
+        },
+    )?;
+    Ok(py_to_js_proxy(py, func.into_ref(py))?.into_py(py))
 }
 
 impl Drop for Func {
@@ -111,6 +127,7 @@ impl WasmFunc<Engine> for Func {
 
             Ok(Self {
                 func,
+                dummy_func: dummy_func(py, ty.clone())?,
                 ty,
                 user_state: Some(user_state),
             })
@@ -187,7 +204,8 @@ impl ToPy for Func {
         #[cfg(feature = "tracing")]
         tracing::trace!(func = %self.func, ?self.ty, "Func::to_py");
 
-        self.func.clone_ref(py)
+        self.dummy_func.clone_ref(py)
+        // self.func.clone_ref(py)
     }
 
     // fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
@@ -218,6 +236,7 @@ impl Func {
 
         Ok(Self {
             func: value.into_py(py),
+            dummy_func: dummy_func(py, signature.clone())?,
             ty: signature,
             user_state: None,
         })
@@ -238,9 +257,7 @@ impl PyFunc {
         #[cfg(feature = "tracing")]
         let _span = tracing::debug_span!("call_trampoline", ?self._ty, %args).entered();
 
-        let _func = &self.func;
-
-        let result = py.None();//(self.func)(args)?;
+        let result = (self.func)(args)?;
         let result = py_to_js(py, result.into_ref(py))?.into_py(py);
 
         Ok(result)
