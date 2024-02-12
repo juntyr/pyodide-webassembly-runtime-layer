@@ -187,7 +187,8 @@ impl ToPy for Func {
         #[cfg(feature = "tracing")]
         tracing::trace!(func = %self.func, ?self.ty, "Func::to_py");
 
-        self.func.clone_ref(py)
+        // self.func.clone_ref(py)
+        py.None()
     }
 
     // fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
