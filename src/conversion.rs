@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use pyo3::{
     intern,
     prelude::*,
@@ -142,16 +144,23 @@ impl ValueTypeExt for ValueType {
 
 /// Check if `object` is an instance of the JavaScript class with `constructor`.
 pub fn instanceof(py: Python, object: &PyAny, constructor: &PyAny) -> Result<bool, PyErr> {
-    let instanceof = py
-        .import(intern!(py, "pyodide"))?
-        .getattr(intern!(py, "code"))?
-        .getattr(intern!(py, "run_js"))?
-        .call1((
-            "function isInstanceOf(object, constructor){ return (object instanceof \
-             constructor); } isInstanceOf",
-        ))?;
+    fn is_instance_of(py: Python) -> &PyAny {
+        static IS_INSTANCE_OF: OnceLock<Py<PyAny>> = OnceLock::new();
+        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+        IS_INSTANCE_OF.get_or_init(|| {
+            py
+                .import(intern!(py, "pyodide")).unwrap()
+                .getattr(intern!(py, "code")).unwrap()
+                .getattr(intern!(py, "run_js")).unwrap()
+                .call1((
+                    "function isInstanceOf(object, constructor){ return (object instanceof \
+                    constructor); } isInstanceOf",
+                )).unwrap()
+                .into_py(py)
+        }).as_ref(py)
+    }
 
-    instanceof.call1((object, constructor))?.extract()
+    is_instance_of(py).call1((object, constructor))?.extract()
 }
 
 pub fn py_to_js<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py PyAny, PyErr> {
@@ -196,16 +205,23 @@ pub fn py_dict_to_js_object<'py>(py: Python<'py>, dict: &'py PyDict) -> Result<&
 }
 
 pub fn py_to_weak_js<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py PyAny, PyErr> {
-    let create_weak_ref_function = py
-        .import(intern!(py, "pyodide"))?
-        .getattr(intern!(py, "code"))?
-        .getattr(intern!(py, "run_js"))?
-        .call1((
-            "function createWeakRefFunction(func){ let weak = new WeakRef(func); function weakRefFunction(...args) { return weak.deref()(...args); }; return weakRefFunction; } createWeakRefFunction",
-        ))?;
+    fn create_weak_ref_function(py: Python) -> &PyAny {
+        static CREATE_WEAK_REF_FUNCTION: OnceLock<Py<PyAny>> = OnceLock::new();
+        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+        CREATE_WEAK_REF_FUNCTION.get_or_init(|| {
+            py
+                .import(intern!(py, "pyodide")).unwrap()
+                .getattr(intern!(py, "code")).unwrap()
+                .getattr(intern!(py, "run_js")).unwrap()
+                .call1((
+                    "function createWeakRefFunction(func){ let weak = new WeakRef(func); function weakRefFunction(...args) { return weak.deref()(...args); }; return weakRefFunction; } createWeakRefFunction",
+                )).unwrap()
+                .into_py(py)
+        }).as_ref(py)
+    }
 
     py_to_js(
         py,
-        create_weak_ref_function.call1((py_to_js(py, object)?,))?,
+        create_weak_ref_function(py).call1((py_to_js(py, object)?,))?,
     )
 }
