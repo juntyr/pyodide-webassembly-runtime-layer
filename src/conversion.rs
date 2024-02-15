@@ -18,9 +18,10 @@ pub trait ToPy {
     fn to_py(&self, py: Python) -> Py<PyAny>;
 
     fn to_py_js(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
-        let object = self.to_py(py).into_ref(py);
-        let object = py_to_js(py, object)?;
-        Ok(object.into_py(py))
+        // let object = self.to_py(py);
+        // let object = py_to_js(py, object.as_ref(py))?;
+        // Ok(object.into_py(py))
+        Ok(self.to_py(py))
     }
 }
 
@@ -46,13 +47,13 @@ impl ToPy for Value<Engine> {
     //     tracing::trace!(ty = ?self.ty(), "Value::to_py_js");
 
     //     if let Value::FuncRef(Some(func)) = self {
-    //         let func = func.to_py(py).into_ref(py);
-    //         let func = py_to_js_proxy(py, func)?;
+    //         let func = func.to_py(py);
+    //         let func = py_to_js_proxy(py, func.as_ref(py))?;
     //         return Ok(func.into_py(py));
     //     }
 
-    //     let object = self.to_py(py).into_ref(py);
-    //     let object = py_to_js(py, object)?;
+    //     let object = self.to_py(py);
+    //     let object = py_to_js(py, object.as_ref(py))?;
     //     Ok(object.into_py(py))
     // }
 }
@@ -75,13 +76,13 @@ impl ToPy for Extern<Engine> {
     //     tracing::trace!("Extern::to_py_js");
 
     //     if let Extern::Func(func) = self {
-    //         let func = func.to_py(py).into_ref(py);
-    //         let func = py_to_js_proxy(py, func)?;
+    //         let func = func.to_py(py);
+    //         let func = py_to_js_proxy(py, func.as_ref(py))?;
     //         return Ok(func.into_py(py));
     //     }
 
-    //     let object = self.to_py(py).into_ref(py);
-    //     let object = py_to_js(py, object)?;
+    //     let object = self.to_py(py);
+    //     let object = py_to_js(py, object.as_ref(py))?;
     //     Ok(object.into_py(py))
     // }
 }
@@ -163,15 +164,15 @@ pub fn instanceof(py: Python, object: &PyAny, constructor: &PyAny) -> Result<boo
     is_instance_of(py).call1((object, constructor))?.extract()
 }
 
-pub fn py_to_js<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py PyAny, PyErr> {
-    py.import(intern!(py, "pyodide"))?
-        .getattr(intern!(py, "ffi"))?
-        .getattr(intern!(py, "to_js"))?
-        .call(
-            (object,),
-            Some([(intern!(py, "create_pyproxies"), false)].into_py_dict(py)),
-        )
-}
+// pub fn py_to_js<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py PyAny, PyErr> {
+//     py.import(intern!(py, "pyodide"))?
+//         .getattr(intern!(py, "ffi"))?
+//         .getattr(intern!(py, "to_js"))?
+//         .call(
+//             (object,),
+//             Some([(intern!(py, "create_pyproxies"), false)].into_py_dict(py)),
+//         )
+// }
 
 pub fn py_to_js_proxy<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py PyAny, PyErr> {
     py.import(intern!(py, "pyodide"))?
@@ -204,24 +205,24 @@ pub fn py_dict_to_js_object<'py>(py: Python<'py>, dict: &'py PyDict) -> Result<&
         )
 }
 
-pub fn py_to_weak_js<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py PyAny, PyErr> {
-    fn create_weak_ref_function(py: Python) -> &PyAny {
-        static CREATE_WEAK_REF_FUNCTION: OnceLock<Py<PyAny>> = OnceLock::new();
-        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        CREATE_WEAK_REF_FUNCTION.get_or_init(|| {
-            py
-                .import(intern!(py, "pyodide")).unwrap()
-                .getattr(intern!(py, "code")).unwrap()
-                .getattr(intern!(py, "run_js")).unwrap()
-                .call1((
-                    "function createWeakRefFunction(func){ let weak = new WeakRef(func); function weakRefFunction(...args) { return weak.deref()(...args); }; return weakRefFunction; } createWeakRefFunction",
-                )).unwrap()
-                .into_py(py)
-        }).as_ref(py)
-    }
+// pub fn py_to_weak_js<'py>(py: Python<'py>, object: &'py PyAny) -> Result<&'py PyAny, PyErr> {
+//     fn create_weak_ref_function(py: Python) -> &PyAny {
+//         static CREATE_WEAK_REF_FUNCTION: OnceLock<Py<PyAny>> = OnceLock::new();
+//         // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+//         CREATE_WEAK_REF_FUNCTION.get_or_init(|| {
+//             py
+//                 .import(intern!(py, "pyodide")).unwrap()
+//                 .getattr(intern!(py, "code")).unwrap()
+//                 .getattr(intern!(py, "run_js")).unwrap()
+//                 .call1((
+//                     "function createWeakRefFunction(func){ let weak = new WeakRef(func); function weakRefFunction(...args) { return weak.deref()(...args); }; return weakRefFunction; } createWeakRefFunction",
+//                 )).unwrap()
+//                 .into_py(py)
+//         }).as_ref(py)
+//     }
 
-    py_to_js(
-        py,
-        create_weak_ref_function(py).call1((py_to_js(py, object)?,))?,
-    )
-}
+//     // py_to_js(
+//     //     py,
+//         create_weak_ref_function(py).call1((/*py_to_js(py, */object/*)?*/,))//?,
+//     // )
+// }

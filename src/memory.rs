@@ -13,7 +13,7 @@ use crate::{
     Engine,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 /// A WebAssembly Memory
 pub struct Memory {
     /// The memory value
@@ -25,9 +25,24 @@ pub struct Memory {
 impl Drop for Memory {
     fn drop(&mut self) {
         Python::with_gil(|py| {
-            let _memory = self.value.as_ref(py);
+            let memory = std::mem::replace(&mut self.value, py.None());
+
             #[cfg(feature = "tracing")]
-            tracing::debug!(?self.ty, refcnt = _memory.get_refcnt(), "Memory::drop");
+            tracing::debug!(?self.ty, refcnt = memory.get_refcnt(py), "Memory::drop");
+
+            // Safety: we hold the GIL and own memory
+            unsafe { pyo3::ffi::Py_DECREF(memory.into_ptr()) };
+        })
+    }
+}
+
+impl Clone for Memory {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| {
+            Self {
+                value: self.value.clone_ref(py),
+                ty: self.ty.clone(),
+            }
         })
     }
 }
@@ -156,18 +171,16 @@ impl ToPy for Memory {
 
 impl Memory {
     /// Construct a memory from an exported memory object
-    pub(crate) fn from_exported_memory(value: &PyAny, ty: MemoryType) -> anyhow::Result<Self> {
-        let py = value.py();
-
-        if !instanceof(py, value, web_assembly_memory(py)?)? {
+    pub(crate) fn from_exported_memory(py: Python, value: Py<PyAny>, ty: MemoryType) -> anyhow::Result<Self> {
+        if !instanceof(py, value.as_ref(py), web_assembly_memory(py)?)? {
             anyhow::bail!("expected WebAssembly.Memory but found {value:?}");
         }
 
         #[cfg(feature = "tracing")]
-        tracing::debug!(%value, ?ty, "Memory::from_exported_memory");
+        tracing::debug!(value = %value.as_ref(py), ?ty, "Memory::from_exported_memory");
 
         Ok(Self {
-            value: value.into_py(py),
+            value,
             ty,
         })
     }

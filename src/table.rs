@@ -9,7 +9,7 @@ use crate::{
     Engine,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 /// A WebAssembly table
 pub struct Table {
     /// Table reference
@@ -21,9 +21,24 @@ pub struct Table {
 impl Drop for Table {
     fn drop(&mut self) {
         Python::with_gil(|py| {
-            let _table = self.table.as_ref(py);
+            let table = std::mem::replace(&mut self.table, py.None());
+
             #[cfg(feature = "tracing")]
-            tracing::debug!(?self.ty, refcnt = _table.get_refcnt(), "Table::drop");
+            tracing::debug!(?self.ty, refcnt = table.get_refcnt(py), "Table::drop");
+
+            // Safety: we hold the GIL and own table
+            unsafe { pyo3::ffi::Py_DECREF(table.into_ptr()) };
+        })
+    }
+}
+
+impl Clone for Table {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| {
+            Self {
+                table: self.table.clone_ref(py),
+                ty: self.ty.clone(),
+            }
         })
     }
 }
@@ -150,24 +165,22 @@ impl ToPy for Table {
 
 impl Table {
     /// Creates a new table from a Python value
-    pub(crate) fn from_exported_table(value: &PyAny, ty: TableType) -> anyhow::Result<Self> {
-        let py = value.py();
-
-        if !instanceof(py, value, web_assembly_table(py)?)? {
+    pub(crate) fn from_exported_table(py: Python, value: Py<PyAny>, ty: TableType) -> anyhow::Result<Self> {
+        if !instanceof(py, value.as_ref(py), web_assembly_table(py)?)? {
             anyhow::bail!("expected WebAssembly.Table but found {value:?}");
         }
 
         #[cfg(feature = "tracing")]
-        tracing::debug!(%value, ?ty, "Table::from_exported_table");
+        tracing::debug!(value = %value.as_ref(py), ?ty, "Table::from_exported_table");
 
-        let table_length: u32 = value.getattr(intern!(py, "length"))?.extract()?;
+        let table_length: u32 = value.as_ref(py).getattr(intern!(py, "length"))?.extract()?;
 
         assert!(table_length >= ty.minimum());
         assert_eq!(ty.element(), ValueType::FuncRef);
 
         Ok(Self {
             ty,
-            table: value.into_py(py),
+            table: value,
         })
     }
 }

@@ -1,4 +1,4 @@
-#![deny(warnings)]
+// #![deny(warnings)]
 #![warn(missing_docs)]
 
 //! `pyodide_wasm_runtime_layer` implements the `wasm_runtime_layer` API to

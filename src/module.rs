@@ -10,7 +10,7 @@ use wasm_runtime_layer::{
 
 use crate::Engine;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 /// A WebAssembly Module
 pub struct Module {
     /// The inner module
@@ -22,9 +22,24 @@ pub struct Module {
 impl Drop for Module {
     fn drop(&mut self) {
         Python::with_gil(|py| {
-            let _module = self.module.as_ref(py);
+            let module = std::mem::replace(&mut self.module, py.None());
+            
             #[cfg(feature = "tracing")]
-            tracing::debug!(refcnt = _module.get_refcnt(), "Module::drop");
+            tracing::debug!(refcnt = module.get_refcnt(py), "Module::drop");
+
+            // Safety: we hold the GIL and own module
+            unsafe { pyo3::ffi::Py_DECREF(module.into_ptr()) };
+        })
+    }
+}
+
+impl Clone for Module {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| {
+            Self {
+                module: self.module.clone_ref(py),
+                parsed: Arc::clone(&self.parsed),
+            }
         })
     }
 }

@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// A global variable accesible as an import or export in a module
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Global {
     /// The global value
     value: Py<PyAny>,
@@ -18,12 +18,27 @@ pub struct Global {
     ty: GlobalType,
 }
 
+impl Clone for Global {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| {
+            Self {
+                value: self.value.clone_ref(py),
+                ty: self.ty.clone(),
+            }
+        })
+    }
+}
+
 impl Drop for Global {
     fn drop(&mut self) {
         Python::with_gil(|py| {
-            let _global = self.value.as_ref(py);
+            let global = std::mem::replace(&mut self.value, py.None());
+
             #[cfg(feature = "tracing")]
-            tracing::debug!(?self.ty, refcnt = _global.get_refcnt(), "Global::drop");
+            tracing::debug!(?self.ty, refcnt = global.get_refcnt(py), "Global::drop");
+
+            // Safety: we hold the GIL and own global
+            unsafe { pyo3::ffi::Py_DECREF(global.into_ptr()) };
         })
     }
 }
@@ -109,20 +124,19 @@ impl ToPy for Global {
 impl Global {
     /// Creates a new global from a Python value
     pub(crate) fn from_exported_global(
-        value: &PyAny,
+        py: Python,
+        value: Py<PyAny>,
         signature: GlobalType,
     ) -> anyhow::Result<Self> {
-        let py = value.py();
-
-        if !instanceof(py, value, web_assembly_global(py)?)? {
+        if !instanceof(py, value.as_ref(py), web_assembly_global(py)?)? {
             anyhow::bail!("expected WebAssembly.Global but found {value:?}");
         }
 
         #[cfg(feature = "tracing")]
-        tracing::debug!(%value, ?signature, "Global::from_exported_global");
+        tracing::debug!(value = %value.as_ref(py), ?signature, "Global::from_exported_global");
 
         Ok(Self {
-            value: value.into_py(py),
+            value,
             ty: signature,
         })
     }
