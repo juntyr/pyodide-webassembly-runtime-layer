@@ -11,6 +11,8 @@ use crate::{
     Engine, StoreContextMut,
 };
 
+static DUMMY: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
 /// A bound function
 #[derive(Debug)]
 pub struct Func {
@@ -21,6 +23,14 @@ pub struct Func {
     ty: FuncType,
     /// The user state type of the context
     user_state: Option<TypeId>,
+    dummy: u32,
+}
+
+#[inline(never)]
+#[no_mangle]
+fn func_debug_breakpoint(py: Python) -> Result<(), PyErr> {
+    py.import(intern!(py, "js"))?.getattr(intern!(py, "console"))?.getattr(intern!(py, "warn"))?.call1(("BREAK",))?;
+    Ok(())
 }
 
 impl Clone for Func {
@@ -30,12 +40,18 @@ impl Clone for Func {
         // }
 
         Python::with_gil(|py| {
-            // println!("CLONE {:?} refcnt={}", self.ty, self.func.as_ref(py).get_refcnt());
+            let dummy = DUMMY.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        
+            // if format!("{:?}", self.ty).contains("\"2\"") && self.ty.params().len() == 1 {
+            //     println!("CLONE {:?} jsid={:?} refcnt={} dummy={dummy}", self.ty, self.func.as_ref(py).getattr(intern!(py, "js_id")), self.func.as_ref(py).get_refcnt());
+            //     func_debug_breakpoint(py).unwrap();
+            // }
 
             Self {
                 func: self.func.clone_ref(py),
                 ty: self.ty.clone(),
                 user_state: self.user_state,
+                dummy,
             }
         })
     }
@@ -50,7 +66,12 @@ impl Drop for Func {
         Python::with_gil(|py| {
             let func = std::mem::replace(&mut self.func, py.None());
             
-            // println!("DROP {:?} refcnt={}", self.ty, func.as_ref(py).get_refcnt());
+            // if format!("{:?}", self.ty).contains("\"2\"") && self.ty.params().len() == 1 {
+            // // if func.as_ref(py).get_refcnt() == 1 {
+            //     println!("DROP {:?} jsid={:?} refcnt={} dummy={}", self.ty, func.as_ref(py).getattr(intern!(py, "js_id")), func.as_ref(py).get_refcnt(), self.dummy);
+            //     func_debug_breakpoint(py).unwrap();
+            // // }
+            // }
 
             // Safety: we hold the GIL and own func
             unsafe { pyo3::ffi::Py_DECREF(func.into_ptr()) };
@@ -113,9 +134,12 @@ impl WasmFunc<Engine> for Func {
             let user_state = non_static_type_id(store.data());
             let ty_clone = ty.clone();
 
-            let func = Box::new(move |args: &PyTuple| -> Result<Py<PyAny>, PyErr> {
-                let mut strong_store = Weak::upgrade(&weak_store)
-                    .expect("host func must only be called while its store is alive");
+            let func = Arc::new(move |args: &PyTuple| -> Result<Py<PyAny>, PyErr> {
+                let Some(mut strong_store) = Weak::upgrade(&weak_store) else {
+                    return Err(PyErr::from(anyhow::anyhow!(
+                        "host func called after free of its associated store"
+                    )));
+                };
 
                 // Safety:
                 //
@@ -165,7 +189,7 @@ impl WasmFunc<Engine> for Func {
             let func = Py::new(
                 py,
                 PyFunc {
-                    func,
+                    func: store.register_host_func(func),
                     _ty: ty.clone(),
                 },
             )?;
@@ -178,6 +202,7 @@ impl WasmFunc<Engine> for Func {
                 // func: GuestOrHostFunc::Host { func },
                 ty,
                 user_state: Some(user_state),
+                dummy: DUMMY.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
             })
         })
         .unwrap()
@@ -271,6 +296,10 @@ impl ToPy for Func {
         // func.as_ref(py).into_py(py)
         //py_to_js_proxy(py, func.as_ref(py))?.into_py(py);
 
+        // if format!("{:?}", self.ty).contains("\"2\"") && self.ty.params().len() == 1 {
+        //     println!("TOPY {:?} jsid={:?} refcnt={}", self.ty, self.func.as_ref(py).getattr(intern!(py, "js_id")), self.func.as_ref(py).get_refcnt());
+        // }
+
         self.func.clone_ref(py)
     }
 
@@ -301,7 +330,12 @@ impl Func {
         //     );
         // }
 
-        // println!("FROM {signature:?} refcnt={}", value.get_refcnt(py));
+        let dummy = DUMMY.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        // if format!("{:?}", signature).contains("\"2\"") && signature.params().len() == 1 {
+        //     println!("FROM {signature:?} jsid={:?} refcnt={} dummy={dummy}", value.as_ref(py).getattr(intern!(py, "js_id")), value.get_refcnt(py));
+        //     func_debug_breakpoint(py)?;
+        // }
 
         // #[cfg(feature = "tracing")]
         // tracing::debug!(%value, ?signature, "Func::from_exported_function");
@@ -330,14 +364,19 @@ impl Func {
             func: value,
             ty: signature,
             user_state: None,
+            dummy,
         })
     }
 }
 
+pub(crate) type PyFuncFn = dyn 'static + Send + Sync + Fn(&PyTuple) -> Result<Py<PyAny>, PyErr>;
+
+// FIXME: rename to PyHostFunc
+
 #[pyclass(frozen)]
 struct PyFunc {
     #[allow(clippy::type_complexity)]
-    func: Box<dyn 'static + Send + Sync + Fn(&PyTuple) -> Result<Py<PyAny>, PyErr>>,
+    func: Weak<PyFuncFn>,
     _ty: FuncType,
 }
 
@@ -348,11 +387,17 @@ impl PyFunc {
         #[cfg(feature = "tracing")]
         let _span = tracing::debug_span!("call_trampoline", ?self._ty, %args).entered();
 
+        let Some(func) = self.func.upgrade() else {
+            return Err(PyErr::from(anyhow::anyhow!(
+                "weak host func called after free of its associated store"
+            )));
+        };
+
         // let result = (self.func)(args)?;
         // let result = py_to_js(py, result.as_ref(py))?.into_py(py);
 
         // Ok(result)
-        (self.func)(args)
+        func(args)
     }
 }
 

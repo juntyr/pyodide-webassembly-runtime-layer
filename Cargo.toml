@@ -8,7 +8,6 @@ authors = [
     "Juniper Tyree <juniper.tyree@helsinki.fi>",
     "Freja Roberts <ten3roberts@gmail.com>",
     "Douglas Dwyer <dougmdwyer@hotmail.com>",
-    "Tei Leelo Roberts <ten3roberts@gmail.com>",
 ]
 repository = "https://github.com/juntyr/pyodide-wasm-runtime-layer"
 readme = "README.md"

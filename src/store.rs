@@ -8,7 +8,7 @@ use wasm_runtime_layer::backend::{
     AsContext, AsContextMut, WasmStore, WasmStoreContext, WasmStoreContextMut,
 };
 
-use crate::Engine;
+use crate::{Engine, func::PyFuncFn};
 
 /// A collection of WebAssembly instances and host-defined state
 pub struct Store<T> {
@@ -50,13 +50,15 @@ pub struct Store<T> {
     _marker: PhantomData<T>,
 }
 
-#[derive(Debug)]
 /// The inner state of the store, which is pinned in heap memory
 struct StoreInner<T> {
     /// The engine used
     engine: Engine,
     /// The user data
     data: T,
+    /// The user host functions, which must live in Rust and not JS to avoid a
+    /// cross-language reference cycle
+    host_funcs: Vec<Arc<PyFuncFn>>,
 }
 
 impl<T> WasmStore<T, Engine> for Store<T> {
@@ -68,6 +70,7 @@ impl<T> WasmStore<T, Engine> for Store<T> {
             inner: Arc::new(StoreProof::from_ptr(Box::into_raw(Box::new(StoreInner {
                 engine: engine.clone(),
                 data,
+                host_funcs: Vec::new(),
             })))),
             _marker: PhantomData::<T>,
         }
@@ -129,9 +132,12 @@ impl<T> AsContextMut<Engine> for Store<T> {
 
 impl<T: fmt::Debug> fmt::Debug for Store<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("Debug")
-            .field("inner", self.as_inner())
-            .finish()
+        let store = self.as_inner();
+
+        fmt.debug_struct("Store")
+            .field("engine", &store.engine)
+            .field("data", &store.data)
+            .finish_non_exhaustive()
     }
 }
 
@@ -212,6 +218,12 @@ impl<'a, T: 'a> StoreContextMut<'a, T> {
             store: unsafe { &mut *(proof.as_ptr()) },
             proof,
         }
+    }
+
+    pub(crate) fn register_host_func(&mut self, func: Arc<PyFuncFn>) -> Weak<PyFuncFn> {
+        let weak = Arc::downgrade(&func);
+        self.store.host_funcs.push(func);
+        weak
     }
 }
 

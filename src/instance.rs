@@ -45,6 +45,10 @@ impl Drop for Instance {
 
 impl Clone for Instance {
     fn clone(&self) -> Self {
+        // if self.exports.iter().any(|(name, value)| name == "2") {
+        //     println!("INSTANCE CLONE {self:?}");
+        // }
+
         Python::with_gil(|py| {
             Self {
                 instance: self.instance.clone_ref(py),
@@ -74,9 +78,9 @@ impl WasmInstance<Engine> for Instance {
             #[cfg(feature = "tracing")]
             let _span = tracing::debug_span!("get_exports").entered();
 
-            let exports = instance.getattr(py, intern!(py, "exports"))?;
+            // let exports = instance.getattr(py, intern!(py, "exports"))?;
             // let instance = Arc::new(instance);
-            let exports = process_exports(/*&instance,*/ py, exports, module)?;
+            let exports = process_exports(/*&instance,*/ py, &instance, module)?;
 
             Ok(Self {
                 instance,//: Arc::new(instance.into_py(py)),
@@ -86,6 +90,9 @@ impl WasmInstance<Engine> for Instance {
     }
 
     fn exports(&self, _store: impl AsContext<Engine>) -> Box<dyn Iterator<Item = Export<Engine>>> {
+        // if self.exports.iter().any(|(name, value)| name == "2") {
+        //     println!("ITER_EXPORTS {:?}", self.exports);
+        // }
         Box::new(
             self.exports
                 .iter()
@@ -99,6 +106,9 @@ impl WasmInstance<Engine> for Instance {
     }
 
     fn get_export(&self, _store: impl AsContext<Engine>, name: &str) -> Option<Extern<Engine>> {
+        // if name == "2" {
+        //     println!("GET_EXPORT {:?}", self.exports.get(name));
+        // }
         self.exports.get(name).cloned()
     }
 }
@@ -164,26 +174,27 @@ fn create_imports_object<'py>(
 fn process_exports(
     py: Python,
     // instance: &Arc<Py<PyAny>>,
-    exports: Py<PyAny>,
+    // exports: Py<PyAny>,
+    instance: &Py<PyAny>,
     module: &Module,
 ) -> anyhow::Result<FxHashMap<String, Extern<Engine>>> {
     // let py = exports.py();
 
-    #[cfg(feature = "tracing")]
-    let _span = tracing::debug_span!("process_exports", %exports).entered();
+    // #[cfg(feature = "tracing")]
+    // let _span = tracing::debug_span!("process_exports", %exports).entered();
 
     // println!("EXPORTS");
 
     module.exports().map(|ExportType { name, ty }| {
         let export = match ty {
             ExternType::Func(signature) => {
-                Extern::Func(Func::from_exported_function(py, exports.getattr(py, name)?, signature)?)
+                Extern::Func(Func::from_exported_function(py, /*exports.getattr(py, name)?*/get_instance_export(py, instance, name)?, signature)?)
             }
             ExternType::Global(signature) => {
-                Extern::Global(Global::from_exported_global(py, exports.getattr(py, name)?, signature)?)
+                Extern::Global(Global::from_exported_global(py, get_instance_export(py, instance, name)?, signature)?)
             }
-            ExternType::Memory(ty) => Extern::Memory(Memory::from_exported_memory(py, exports.getattr(py, name)?, ty)?),
-            ExternType::Table(ty) => Extern::Table(Table::from_exported_table(py, exports.getattr(py, name)?, ty)?),
+            ExternType::Memory(ty) => Extern::Memory(Memory::from_exported_memory(py, get_instance_export(py, instance, name)?, ty)?),
+            ExternType::Table(ty) => Extern::Table(Table::from_exported_table(py, get_instance_export(py, instance, name)?, ty)?),
         };
 
         Ok((String::from(name), export))
@@ -219,6 +230,29 @@ fn process_exports(
     //         Ok((name, export))
     //     })
     //     .collect()
+}
+
+fn get_instance_export(py: Python, instance: &Py<PyAny>, name: &str) -> Result<Py<PyAny>, PyErr> {
+    fn get_export(py: Python) -> &'static Py<PyAny> {
+        static GET_EXPORT: std::sync::OnceLock<Py<PyAny>> = std::sync::OnceLock::new();
+        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+        GET_EXPORT.get_or_init(|| {
+            py
+                .import(intern!(py, "pyodide")).unwrap()
+                .getattr(intern!(py, "code")).unwrap()
+                .getattr(intern!(py, "run_js")).unwrap()
+                .call1((
+                    "function get_export(instance, name){ let exp = instance.exports[name]; /*console.warn(\"export\", name, exp);*/ return exp; } get_export",
+                )).unwrap()
+                .into_py(py)
+        })
+    }
+
+    let export = get_export(py).call1(py, (instance, name))?;
+
+    // println!("EXPORT {name} jsid={:?} refcnt={}", export.as_ref(py).getattr(intern!(py, "js_id")), export.get_refcnt(py));
+
+    Ok(export)
 }
 
 fn web_assembly_instance(py: Python) -> Result<&PyAny, PyErr> {
