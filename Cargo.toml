@@ -21,5 +21,8 @@ anyhow = { version = "1.0", default-features = false, features = ["std"] }
 fxhash = { version = "0.2", default-features = false }
 pyo3 = { version = "0.20", default-features = false, features = ["anyhow", "macros"] }
 tracing = { version = "0.1", default-features = false, optional = true }
-wasmparser = { version = "0.121", default-features = false }
+wasmparser = { version = "0.200", default-features = false }
 wasm_runtime_layer = { version = "0.2", default-features = false }
+
+[features]
+tracing = ["dep:tracing"]

@@ -10,37 +10,12 @@ use crate::{
 };
 
 /// A global variable accesible as an import or export in a module
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Global {
     /// The global value
     value: Py<PyAny>,
     /// The global type
     ty: GlobalType,
-}
-
-impl Clone for Global {
-    fn clone(&self) -> Self {
-        Python::with_gil(|py| {
-            Self {
-                value: self.value.clone_ref(py),
-                ty: self.ty.clone(),
-            }
-        })
-    }
-}
-
-impl Drop for Global {
-    fn drop(&mut self) {
-        Python::with_gil(|py| {
-            let global = std::mem::replace(&mut self.value, py.None());
-
-            #[cfg(feature = "tracing")]
-            tracing::debug!(?self.ty, refcnt = global.get_refcnt(py), "Global::drop");
-
-            // Safety: we hold the GIL and own global
-            unsafe { pyo3::ffi::Py_DECREF(global.into_ptr()) };
-        })
-    }
 }
 
 impl WasmGlobal<Engine> for Global {
@@ -59,8 +34,7 @@ impl WasmGlobal<Engine> for Global {
             desc.set_item(intern!(py, "mutable"), mutable)?;
             let desc = py_dict_to_js_object(py, desc)?;
 
-            // value is passed to WebAssembly global, so it must be turned into JS
-            let value = value.to_py_js(py)?;
+            let value = value.to_py(py);
 
             let global = web_assembly_global(py)?
                 .getattr(intern!(py, "new"))?
@@ -88,8 +62,7 @@ impl WasmGlobal<Engine> for Global {
             #[cfg(feature = "tracing")]
             tracing::debug!(%global, ?self.ty, ?new_value, "Global::set");
 
-            // value is passed to WebAssembly global, so it must be turned into JS
-            let new_value = new_value.to_py_js(py)?;
+            let new_value = new_value.to_py(py);
 
             global.setattr(intern!(py, "value"), new_value)?;
 
@@ -106,7 +79,7 @@ impl WasmGlobal<Engine> for Global {
 
             let value = global.getattr(intern!(py, "value"))?;
 
-            Value::from_py_typed(value, &self.ty.content())
+            Value::from_py_typed(value, self.ty.content())
         })
         .unwrap()
     }

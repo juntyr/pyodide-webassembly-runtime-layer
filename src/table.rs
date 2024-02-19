@@ -9,38 +9,13 @@ use crate::{
     Engine,
 };
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 /// A WebAssembly table
 pub struct Table {
     /// Table reference
     table: Py<PyAny>,
     /// The table signature
     ty: TableType,
-}
-
-impl Drop for Table {
-    fn drop(&mut self) {
-        Python::with_gil(|py| {
-            let table = std::mem::replace(&mut self.table, py.None());
-
-            #[cfg(feature = "tracing")]
-            tracing::debug!(?self.ty, refcnt = table.get_refcnt(py), "Table::drop");
-
-            // Safety: we hold the GIL and own table
-            unsafe { pyo3::ffi::Py_DECREF(table.into_ptr()) };
-        })
-    }
-}
-
-impl Clone for Table {
-    fn clone(&self) -> Self {
-        Python::with_gil(|py| {
-            Self {
-                table: self.table.clone_ref(py),
-                ty: self.ty.clone(),
-            }
-        })
-    }
 }
 
 impl WasmTable<Engine> for Table {
@@ -61,8 +36,7 @@ impl WasmTable<Engine> for Table {
             }
             let desc = py_dict_to_js_object(py, desc)?;
 
-            // init is passed to WebAssembly table, so it must be turned into JS
-            let init = init.to_py_js(py)?;
+            let init = init.to_py(py);
 
             let table = web_assembly_table(py)?
                 .getattr(intern!(py, "new"))?
@@ -106,8 +80,7 @@ impl WasmTable<Engine> for Table {
             #[cfg(feature = "tracing")]
             tracing::debug!(%table, ?self.ty, delta, ?init, "Table::grow");
 
-            // init is passed to WebAssembly table, so it must be turned into JS
-            let init = init.to_py_js(py)?;
+            let init = init.to_py(py);
 
             let old_len = table
                 .call_method1(intern!(py, "grow"), (delta, init))?
@@ -127,7 +100,7 @@ impl WasmTable<Engine> for Table {
 
             let value = table.call_method1(intern!(py, "get"), (index,)).ok()?;
 
-            Some(Value::from_py_typed(value, &self.ty.element()).unwrap())
+            Some(Value::from_py_typed(value, self.ty.element()).unwrap())
         })
     }
 
@@ -144,8 +117,7 @@ impl WasmTable<Engine> for Table {
             #[cfg(feature = "tracing")]
             tracing::debug!(%table, ?self.ty, index, ?value, "Table::set");
 
-            // value is passed to WebAssembly global, so it must be turned into JS
-            let value = value.to_py_js(py)?;
+            let value = value.to_py(py);
 
             table.call_method1(intern!(py, "set"), (index, value))?;
 
@@ -165,7 +137,11 @@ impl ToPy for Table {
 
 impl Table {
     /// Creates a new table from a Python value
-    pub(crate) fn from_exported_table(py: Python, value: Py<PyAny>, ty: TableType) -> anyhow::Result<Self> {
+    pub(crate) fn from_exported_table(
+        py: Python,
+        value: Py<PyAny>,
+        ty: TableType,
+    ) -> anyhow::Result<Self> {
         if !instanceof(py, value.as_ref(py), web_assembly_table(py)?)? {
             anyhow::bail!("expected WebAssembly.Table but found {value:?}");
         }
@@ -178,10 +154,7 @@ impl Table {
         assert!(table_length >= ty.minimum());
         assert_eq!(ty.element(), ValueType::FuncRef);
 
-        Ok(Self {
-            ty,
-            table: value,
-        })
+        Ok(Self { ty, table: value })
     }
 }
 

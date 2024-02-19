@@ -10,38 +10,13 @@ use wasm_runtime_layer::{
 
 use crate::Engine;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 /// A WebAssembly Module
 pub struct Module {
     /// The inner module
     module: Py<PyAny>,
     /// The parsed module, containing import and export signatures
     parsed: Arc<ParsedModule>,
-}
-
-impl Drop for Module {
-    fn drop(&mut self) {
-        Python::with_gil(|py| {
-            let module = std::mem::replace(&mut self.module, py.None());
-            
-            #[cfg(feature = "tracing")]
-            tracing::debug!(refcnt = module.get_refcnt(py), "Module::drop");
-
-            // Safety: we hold the GIL and own module
-            unsafe { pyo3::ffi::Py_DECREF(module.into_ptr()) };
-        })
-    }
-}
-
-impl Clone for Module {
-    fn clone(&self) -> Self {
-        Python::with_gil(|py| {
-            Self {
-                module: self.module.clone_ref(py),
-                parsed: Arc::clone(&self.parsed),
-            }
-        })
-    }
 }
 
 impl WasmModule<Engine> for Module {
@@ -72,7 +47,7 @@ impl WasmModule<Engine> for Module {
 
             let parsed = Arc::new(parsed);
 
-            Ok(Module {
+            Ok(Self {
                 module: module.into_py(py),
                 parsed,
             })
@@ -120,6 +95,7 @@ struct ParsedModule {
 }
 
 impl ParsedModule {
+    #[allow(clippy::too_many_lines)]
     /// Parses a module from bytes and extracts import and export signatures
     fn parse(bytes: &[u8]) -> anyhow::Result<Self> {
         let parser = wasmparser::Parser::new(0);
@@ -136,7 +112,6 @@ impl ParsedModule {
 
         parser.parse_all(bytes).try_for_each(|payload| {
             match payload? {
-                wasmparser::Payload::Version { .. } => {}
                 wasmparser::Payload::TypeSection(section) => {
                     for ty in section {
                         let ty = ty?;
@@ -147,8 +122,16 @@ impl ParsedModule {
                         let ty = match (subtype, subtypes.next()) {
                             (Some(subtype), None) => match &subtype.composite_type {
                                 wasmparser::CompositeType::Func(func_type) => FuncType::new(
-                                    func_type.params().iter().map(ValueType::from_value),
-                                    func_type.results().iter().map(ValueType::from_value),
+                                    func_type
+                                        .params()
+                                        .iter()
+                                        .copied()
+                                        .map(ValueType::from_value),
+                                    func_type
+                                        .results()
+                                        .iter()
+                                        .copied()
+                                        .map(ValueType::from_value),
                                 ),
                                 _ => unreachable!(),
                             },
@@ -176,22 +159,21 @@ impl ParsedModule {
                 wasmparser::Payload::MemorySection(section) => {
                     for memory in section {
                         let memory = memory?;
-                        memories.push(MemoryType::from_parsed(&memory)?)
+                        memories.push(MemoryType::from_parsed(&memory)?);
                     }
                 }
                 wasmparser::Payload::GlobalSection(section) => {
                     for global in section {
                         let global = global?;
-                        globals.push(GlobalType::from_parsed(&global.ty));
+                        globals.push(GlobalType::from_parsed(global.ty));
                     }
                 }
-                wasmparser::Payload::TagSection(_section) =>
-                {
-                    #[cfg(feature = "tracing")]
-                    for tag in _section {
-                        let tag = tag?;
+                wasmparser::Payload::TagSection(section) => {
+                    for tag in section {
+                        let _tag = tag?;
 
-                        tracing::trace!(?tag, "tag");
+                        #[cfg(feature = "tracing")]
+                        tracing::trace!(?_tag, "tag");
                     }
                 }
                 wasmparser::Payload::ImportSection(section) => {
@@ -212,8 +194,8 @@ impl ParsedModule {
                                 ExternType::Memory(MemoryType::from_parsed(&ty)?)
                             }
                             wasmparser::TypeRef::Global(ty) => {
-                                globals.push(GlobalType::from_parsed(&ty));
-                                ExternType::Global(GlobalType::from_parsed(&ty))
+                                globals.push(GlobalType::from_parsed(ty));
+                                ExternType::Global(GlobalType::from_parsed(ty))
                             }
                             wasmparser::TypeRef::Tag(_) => {
                                 unimplemented!("WebAssembly.Tag is not yet supported")
@@ -242,53 +224,56 @@ impl ParsedModule {
                         exports.insert(export.name.to_string(), ty);
                     }
                 }
-                wasmparser::Payload::StartSection { .. } => {}
-                wasmparser::Payload::ElementSection(_section) =>
-                {
-                    #[cfg(feature = "tracing")]
-                    for element in _section {
+                wasmparser::Payload::ElementSection(section) => {
+                    for element in section {
                         let element = element?;
+
+                        #[cfg(feature = "tracing")]
                         match element.kind {
                             wasmparser::ElementKind::Passive => tracing::debug!("passive"),
                             wasmparser::ElementKind::Active { .. } => tracing::debug!("active"),
                             wasmparser::ElementKind::Declared => tracing::debug!("declared"),
                         }
+                        #[cfg(not(feature = "tracing"))]
+                        let _ = element;
                     }
                 }
-                wasmparser::Payload::DataCountSection { .. } => {}
-                wasmparser::Payload::DataSection(_) => {}
-                wasmparser::Payload::CodeSectionStart { .. } => {}
-                wasmparser::Payload::CodeSectionEntry(_) => {}
-                wasmparser::Payload::ModuleSection { .. } => {}
-                wasmparser::Payload::InstanceSection(_) => {}
-                wasmparser::Payload::CoreTypeSection(_) => {}
-                wasmparser::Payload::ComponentSection { .. } => {}
-                wasmparser::Payload::ComponentInstanceSection(_) => {}
-                wasmparser::Payload::ComponentAliasSection(_) => {}
-                wasmparser::Payload::ComponentTypeSection(_) => {}
-                wasmparser::Payload::ComponentCanonicalSection(_) => {}
-                wasmparser::Payload::ComponentStartSection { .. } => {}
-                wasmparser::Payload::ComponentImportSection(_) => {}
-                wasmparser::Payload::ComponentExportSection(_) => {}
-                wasmparser::Payload::CustomSection(_) => {}
-                wasmparser::Payload::UnknownSection { .. } => {}
-                wasmparser::Payload::End(_) => {}
+                wasmparser::Payload::Version { .. }
+                | wasmparser::Payload::StartSection { .. }
+                | wasmparser::Payload::DataCountSection { .. }
+                | wasmparser::Payload::DataSection(_)
+                | wasmparser::Payload::CodeSectionStart { .. }
+                | wasmparser::Payload::CodeSectionEntry(_)
+                | wasmparser::Payload::ModuleSection { .. }
+                | wasmparser::Payload::InstanceSection(_)
+                | wasmparser::Payload::CoreTypeSection(_)
+                | wasmparser::Payload::ComponentSection { .. }
+                | wasmparser::Payload::ComponentInstanceSection(_)
+                | wasmparser::Payload::ComponentAliasSection(_)
+                | wasmparser::Payload::ComponentTypeSection(_)
+                | wasmparser::Payload::ComponentCanonicalSection(_)
+                | wasmparser::Payload::ComponentStartSection { .. }
+                | wasmparser::Payload::ComponentImportSection(_)
+                | wasmparser::Payload::ComponentExportSection(_)
+                | wasmparser::Payload::CustomSection(_)
+                | wasmparser::Payload::UnknownSection { .. }
+                | wasmparser::Payload::End(_) => {}
             }
 
             anyhow::Ok(())
         })?;
 
-        Ok(ParsedModule { imports, exports })
+        Ok(Self { imports, exports })
     }
 }
 
 trait ValueTypeFrom {
-    fn from_value(value: &wasmparser::ValType) -> Self;
-    fn from_ref(ty: &wasmparser::RefType) -> Self;
+    fn from_value(value: wasmparser::ValType) -> Self;
+    fn from_ref(ty: wasmparser::RefType) -> Self;
 }
 
 impl ValueTypeFrom for ValueType {
-    fn from_value(value: &wasmparser::ValType) -> Self {
+    fn from_value(value: wasmparser::ValType) -> Self {
         match value {
             wasmparser::ValType::I32 => Self::I32,
             wasmparser::ValType::I64 => Self::I64,
@@ -299,7 +284,7 @@ impl ValueTypeFrom for ValueType {
         }
     }
 
-    fn from_ref(ty: &wasmparser::RefType) -> Self {
+    fn from_ref(ty: wasmparser::RefType) -> Self {
         if ty.is_func_ref() {
             Self::FuncRef
         } else if ty.is_extern_ref() {
@@ -316,8 +301,8 @@ trait TableTypeFrom {
 
 impl TableTypeFrom for TableType {
     fn from_parsed(value: &wasmparser::TableType) -> Self {
-        TableType::new(
-            ValueType::from_ref(&value.element_type),
+        Self::new(
+            ValueType::from_ref(value.element_type),
             value.initial,
             value.maximum,
         )
@@ -338,7 +323,7 @@ impl MemoryTypeFrom for MemoryType {
             anyhow::bail!("shared memory is not yet supported");
         }
 
-        Ok(MemoryType::new(
+        Ok(Self::new(
             value.initial.try_into()?,
             match value.maximum {
                 None => None,
@@ -349,11 +334,11 @@ impl MemoryTypeFrom for MemoryType {
 }
 
 trait GlobalTypeFrom {
-    fn from_parsed(value: &wasmparser::GlobalType) -> Self;
+    fn from_parsed(value: wasmparser::GlobalType) -> Self;
 }
 
 impl GlobalTypeFrom for GlobalType {
-    fn from_parsed(value: &wasmparser::GlobalType) -> Self {
-        GlobalType::new(ValueType::from_value(&value.content_type), value.mutable)
+    fn from_parsed(value: wasmparser::GlobalType) -> Self {
+        Self::new(ValueType::from_value(value.content_type), value.mutable)
     }
 }

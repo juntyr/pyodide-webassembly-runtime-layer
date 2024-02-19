@@ -1,4 +1,10 @@
-// #![deny(warnings)]
+#![deny(clippy::complexity)]
+#![deny(clippy::correctness)]
+#![warn(clippy::nursery)]
+#![warn(clippy::pedantic)]
+#![deny(clippy::perf)]
+#![deny(clippy::style)]
+#![deny(clippy::suspicious)]
 #![warn(missing_docs)]
 
 //! `pyodide_wasm_runtime_layer` implements the `wasm_runtime_layer` API to

@@ -8,7 +8,7 @@ use wasm_runtime_layer::backend::{
     AsContext, AsContextMut, WasmStore, WasmStoreContext, WasmStoreContextMut,
 };
 
-use crate::{Engine, func::PyFuncFn};
+use crate::{func::PyHostFuncFn, Engine};
 
 /// A collection of WebAssembly instances and host-defined state
 pub struct Store<T> {
@@ -58,7 +58,7 @@ struct StoreInner<T> {
     data: T,
     /// The user host functions, which must live in Rust and not JS to avoid a
     /// cross-language reference cycle
-    host_funcs: Vec<Arc<PyFuncFn>>,
+    host_funcs: Vec<Arc<PyHostFuncFn>>,
 }
 
 impl<T> WasmStore<T, Engine> for Store<T> {
@@ -178,6 +178,7 @@ impl<T> Store<T> {
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 /// Immutable context to the store
 pub struct StoreContext<'a, T: 'a> {
     /// The store
@@ -186,6 +187,7 @@ pub struct StoreContext<'a, T: 'a> {
     proof: &'a Arc<StoreProof>,
 }
 
+#[allow(clippy::module_name_repetitions)]
 /// Mutable context to the store
 pub struct StoreContextMut<'a, T: 'a> {
     /// The store
@@ -220,7 +222,7 @@ impl<'a, T: 'a> StoreContextMut<'a, T> {
         }
     }
 
-    pub(crate) fn register_host_func(&mut self, func: Arc<PyFuncFn>) -> Weak<PyFuncFn> {
+    pub(crate) fn register_host_func(&mut self, func: Arc<PyHostFuncFn>) -> Weak<PyHostFuncFn> {
         let weak = Arc::downgrade(&func);
         self.store.host_funcs.push(func);
         weak
@@ -284,18 +286,19 @@ impl<'a, T: 'a> AsContextMut<Engine> for StoreContextMut<'a, T> {
     }
 }
 
-/// Helper type
-pub(crate) struct StoreProof(*mut ());
+#[allow(clippy::module_name_repetitions)]
+/// Helper type to transfer an opaque pointer to a [`StoreInner`]
+pub struct StoreProof(*mut ());
 
 unsafe impl Send for StoreProof {}
 unsafe impl Sync for StoreProof {}
 
 impl StoreProof {
-    fn from_ptr<T>(ptr: *mut StoreInner<T>) -> Self {
+    const fn from_ptr<T>(ptr: *mut StoreInner<T>) -> Self {
         Self(ptr.cast())
     }
 
-    fn as_ptr<T>(&self) -> *mut StoreInner<T> {
+    const fn as_ptr<T>(&self) -> *mut StoreInner<T> {
         self.0.cast()
     }
 }
