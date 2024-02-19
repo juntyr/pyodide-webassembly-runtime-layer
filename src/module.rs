@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use anyhow::Context;
 use fxhash::FxHashMap;
@@ -8,7 +8,7 @@ use wasm_runtime_layer::{
     TableType, ValueType,
 };
 
-use crate::Engine;
+use crate::{conversion::uint8_array, Engine};
 
 #[derive(Clone, Debug)]
 /// A WebAssembly Module
@@ -32,25 +32,17 @@ impl WasmModule<Engine> for Module {
 
             let parsed = ParsedModule::parse(&bytes)?;
 
-            let buffer = py
-                .import(intern!(py, "js"))?
-                .getattr(intern!(py, "Uint8Array"))?
-                .getattr(intern!(py, "new"))?
-                .call1((bytes.as_slice(),))?;
+            let buffer = uint8_array(py)
+                .getattr(py, intern!(py, "new"))?
+                .call1(py, (bytes.as_slice(),))?;
 
-            let module = py
-                .import(intern!(py, "js"))?
-                .getattr(intern!(py, "WebAssembly"))?
-                .getattr(intern!(py, "Module"))?
-                .getattr(intern!(py, "new"))?
-                .call1((buffer,))?;
+            let module = web_assembly_module(py)
+                .getattr(py, intern!(py, "new"))?
+                .call1(py, (buffer,))?;
 
             let parsed = Arc::new(parsed);
 
-            Ok(Self {
-                module: module.into_py(py),
-                parsed,
-            })
+            Ok(Self { module, parsed })
         })
     }
 
@@ -80,8 +72,8 @@ impl WasmModule<Engine> for Module {
 }
 
 impl Module {
-    pub(crate) fn module<'a, 'py: 'a>(&'a self, py: Python<'py>) -> &'a PyAny {
-        self.module.as_ref(py)
+    pub(crate) fn module(&self, py: Python) -> Py<PyAny> {
+        self.module.clone_ref(py)
     }
 }
 
@@ -341,4 +333,18 @@ impl GlobalTypeFrom for GlobalType {
     fn from_parsed(value: wasmparser::GlobalType) -> Self {
         Self::new(ValueType::from_value(value.content_type), value.mutable)
     }
+}
+
+fn web_assembly_module(py: Python) -> &'static Py<PyAny> {
+    static WEB_ASSEMBLY_MODULE: OnceLock<Py<PyAny>> = OnceLock::new();
+    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+    WEB_ASSEMBLY_MODULE.get_or_init(|| {
+        py.import(intern!(py, "js"))
+            .unwrap()
+            .getattr(intern!(py, "WebAssembly"))
+            .unwrap()
+            .getattr(intern!(py, "Module"))
+            .unwrap()
+            .into_py(py)
+    })
 }

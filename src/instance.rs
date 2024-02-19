@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::OnceLock};
 
 use fxhash::FxHashMap;
 use pyo3::{intern, prelude::*};
@@ -7,7 +7,10 @@ use wasm_runtime_layer::{
     ExportType, ExternType,
 };
 
-use crate::{conversion::ToPy, Engine, Func, Global, Memory, Module, Table};
+use crate::{
+    conversion::{create_js_object, ToPy},
+    Engine, Func, Global, Memory, Module, Table,
+};
 
 /// A WebAssembly Instance
 #[derive(Clone, Debug)]
@@ -30,15 +33,12 @@ impl WasmInstance<Engine> for Instance {
 
             let imports_object = create_imports_object(py, imports)?;
 
-            let instance = web_assembly_instance(py)?
-                .getattr(intern!(py, "new"))?
-                .call1((module.module(py), imports_object))?
-                .into_py(py);
+            let instance = web_assembly_instance(py)
+                .getattr(py, intern!(py, "new"))?
+                .call1(py, (module.module(py), imports_object))?;
 
-            #[cfg(feature = "tracing")]
-            let _span = tracing::debug_span!("get_exports").entered();
-
-            let exports = process_exports(py, &instance, module)?;
+            let exports = instance.getattr(py, intern!(py, "exports"))?;
+            let exports = process_exports(py, &exports, module)?;
 
             Ok(Self {
                 _instance: instance,
@@ -66,10 +66,7 @@ impl WasmInstance<Engine> for Instance {
 }
 
 /// Creates the js import map
-fn create_imports_object<'py>(
-    py: Python<'py>,
-    imports: &Imports<Engine>,
-) -> Result<&'py PyAny, PyErr> {
+fn create_imports_object(py: Python, imports: &Imports<Engine>) -> Result<Py<PyAny>, PyErr> {
     #[cfg(feature = "tracing")]
     let _span = tracing::debug_span!("process_imports").entered();
 
@@ -96,18 +93,13 @@ fn create_imports_object<'py>(
         )?
         .into_iter()
         .try_fold(
-            py.import(intern!(py, "js"))?
-                .getattr(intern!(py, "Object"))?
-                .call_method0(intern!(py, "new"))?,
+            create_js_object(py)?,
             |acc, (module, imports)| -> Result<_, PyErr> {
-                let obj = py
-                    .import(intern!(py, "js"))?
-                    .getattr(intern!(py, "Object"))?
-                    .call_method0(intern!(py, "new"))?;
+                let obj = create_js_object(py)?;
                 for (name, import) in imports {
-                    obj.setattr(name, import)?;
+                    obj.setattr(py, name, import)?;
                 }
-                acc.setattr(module, obj)?;
+                acc.setattr(py, module, obj)?;
                 Ok(acc)
             },
         )?;
@@ -118,7 +110,7 @@ fn create_imports_object<'py>(
 /// Processes a wasm module's exports into a hashmap
 fn process_exports(
     py: Python,
-    instance: &Py<PyAny>,
+    exports: &Py<PyAny>,
     module: &Module,
 ) -> anyhow::Result<FxHashMap<String, Extern<Engine>>> {
     #[cfg(feature = "tracing")]
@@ -130,22 +122,22 @@ fn process_exports(
             let export = match ty {
                 ExternType::Func(signature) => Extern::Func(Func::from_exported_function(
                     py,
-                    get_instance_export(py, instance, name)?,
+                    exports.getattr(py, name)?,
                     signature,
                 )?),
                 ExternType::Global(signature) => Extern::Global(Global::from_exported_global(
                     py,
-                    get_instance_export(py, instance, name)?,
+                    exports.getattr(py, name)?,
                     signature,
                 )?),
                 ExternType::Memory(ty) => Extern::Memory(Memory::from_exported_memory(
                     py,
-                    get_instance_export(py, instance, name)?,
+                    exports.getattr(py, name)?,
                     ty,
                 )?),
                 ExternType::Table(ty) => Extern::Table(Table::from_exported_table(
                     py,
-                    get_instance_export(py, instance, name)?,
+                    exports.getattr(py, name)?,
                     ty,
                 )?),
             };
@@ -155,29 +147,16 @@ fn process_exports(
         .collect()
 }
 
-fn get_instance_export(py: Python, instance: &Py<PyAny>, name: &str) -> Result<Py<PyAny>, PyErr> {
-    fn get_export(py: Python) -> &'static Py<PyAny> {
-        static GET_EXPORT: std::sync::OnceLock<Py<PyAny>> = std::sync::OnceLock::new();
-        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        GET_EXPORT.get_or_init(|| {
-            py
-                .import(intern!(py, "pyodide")).unwrap()
-                .getattr(intern!(py, "code")).unwrap()
-                .getattr(intern!(py, "run_js")).unwrap()
-                .call1((
-                    "function get_export(instance, name){ let exp = instance.exports[name]; /*console.warn(\"export\", name, exp);*/ return exp; } get_export",
-                )).unwrap()
-                .into_py(py)
-        })
-    }
-
-    let export = get_export(py).call1(py, (instance, name))?;
-
-    Ok(export)
-}
-
-fn web_assembly_instance(py: Python) -> Result<&PyAny, PyErr> {
-    py.import(intern!(py, "js"))?
-        .getattr(intern!(py, "WebAssembly"))?
-        .getattr(intern!(py, "Instance"))
+fn web_assembly_instance(py: Python) -> &'static Py<PyAny> {
+    static WEB_ASSEMBLY_INSTANCE: OnceLock<Py<PyAny>> = OnceLock::new();
+    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+    WEB_ASSEMBLY_INSTANCE.get_or_init(|| {
+        py.import(intern!(py, "js"))
+            .unwrap()
+            .getattr(intern!(py, "WebAssembly"))
+            .unwrap()
+            .getattr(intern!(py, "Instance"))
+            .unwrap()
+            .into_py(py)
+    })
 }

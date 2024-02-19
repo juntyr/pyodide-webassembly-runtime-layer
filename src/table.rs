@@ -1,11 +1,13 @@
-use pyo3::{intern, prelude::*, types::PyDict};
+use std::sync::OnceLock;
+
+use pyo3::{intern, prelude::*};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmTable},
     TableType, ValueType,
 };
 
 use crate::{
-    conversion::{instanceof, py_dict_to_js_object, ToPy, ValueExt, ValueTypeExt},
+    conversion::{create_js_object, instanceof, ToPy, ValueExt, ValueTypeExt},
     Engine,
 };
 
@@ -28,24 +30,20 @@ impl WasmTable<Engine> for Table {
             #[cfg(feature = "tracing")]
             tracing::debug!(?ty, ?init, "Table::new");
 
-            let desc = PyDict::new(py);
-            desc.set_item(intern!(py, "element"), ty.element().as_js_descriptor())?;
-            desc.set_item(intern!(py, "initial"), ty.minimum())?;
+            let desc = create_js_object(py)?;
+            desc.setattr(py, intern!(py, "element"), ty.element().as_js_descriptor())?;
+            desc.setattr(py, intern!(py, "initial"), ty.minimum())?;
             if let Some(max) = ty.maximum() {
-                desc.set_item(intern!(py, "maximum"), max)?;
+                desc.setattr(py, intern!(py, "maximum"), max)?;
             }
-            let desc = py_dict_to_js_object(py, desc)?;
 
             let init = init.to_py(py);
 
-            let table = web_assembly_table(py)?
-                .getattr(intern!(py, "new"))?
-                .call1((desc, init))?;
+            let table = web_assembly_table(py)
+                .getattr(py, intern!(py, "new"))?
+                .call1(py, (desc, init))?;
 
-            Ok(Self {
-                ty,
-                table: table.into_py(py),
-            })
+            Ok(Self { table, ty })
         })
     }
 
@@ -57,12 +55,10 @@ impl WasmTable<Engine> for Table {
     /// Returns the current size of the table.
     fn size(&self, _ctx: impl AsContext<Engine>) -> u32 {
         Python::with_gil(|py| -> Result<u32, PyErr> {
-            let table = self.table.as_ref(py);
-
             #[cfg(feature = "tracing")]
-            tracing::debug!(%table, ?self.ty, "Table::size");
+            tracing::debug!(table = %self.table.as_ref(py), ?self.ty, "Table::size");
 
-            table.getattr(intern!(py, "length"))?.extract()
+            self.table.getattr(py, intern!(py, "length"))?.extract(py)
         })
         .unwrap()
     }
@@ -75,16 +71,15 @@ impl WasmTable<Engine> for Table {
         init: Value<Engine>,
     ) -> anyhow::Result<u32> {
         Python::with_gil(|py| {
-            let table = self.table.as_ref(py);
-
             #[cfg(feature = "tracing")]
-            tracing::debug!(%table, ?self.ty, delta, ?init, "Table::grow");
+            tracing::debug!(table = %self.table.as_ref(py), ?self.ty, delta, ?init, "Table::grow");
 
             let init = init.to_py(py);
 
-            let old_len = table
-                .call_method1(intern!(py, "grow"), (delta, init))?
-                .extract()?;
+            let old_len = self
+                .table
+                .call_method1(py, intern!(py, "grow"), (delta, init))?
+                .extract(py)?;
 
             Ok(old_len)
         })
@@ -93,14 +88,15 @@ impl WasmTable<Engine> for Table {
     /// Returns the table element value at `index`.
     fn get(&self, _ctx: impl AsContextMut<Engine>, index: u32) -> Option<Value<Engine>> {
         Python::with_gil(|py| {
-            let table = self.table.as_ref(py);
-
             #[cfg(feature = "tracing")]
-            tracing::debug!(%table, ?self.ty, index, "Table::get");
+            tracing::debug!(table = %self.table.as_ref(py), ?self.ty, index, "Table::get");
 
-            let value = table.call_method1(intern!(py, "get"), (index,)).ok()?;
+            let value = self
+                .table
+                .call_method1(py, intern!(py, "get"), (index,))
+                .ok()?;
 
-            Some(Value::from_py_typed(value, self.ty.element()).unwrap())
+            Some(Value::from_py_typed(py, value, self.ty.element()).unwrap())
         })
     }
 
@@ -112,14 +108,13 @@ impl WasmTable<Engine> for Table {
         value: Value<Engine>,
     ) -> anyhow::Result<()> {
         Python::with_gil(|py| {
-            let table = self.table.as_ref(py);
-
             #[cfg(feature = "tracing")]
-            tracing::debug!(%table, ?self.ty, index, ?value, "Table::set");
+            tracing::debug!(table = %self.table.as_ref(py), ?self.ty, index, ?value, "Table::set");
 
             let value = value.to_py(py);
 
-            table.call_method1(intern!(py, "set"), (index, value))?;
+            self.table
+                .call_method1(py, intern!(py, "set"), (index, value))?;
 
             Ok(())
         })
@@ -139,27 +134,35 @@ impl Table {
     /// Creates a new table from a Python value
     pub(crate) fn from_exported_table(
         py: Python,
-        value: Py<PyAny>,
+        table: Py<PyAny>,
         ty: TableType,
     ) -> anyhow::Result<Self> {
-        if !instanceof(py, value.as_ref(py), web_assembly_table(py)?)? {
-            anyhow::bail!("expected WebAssembly.Table but found {value:?}");
+        if !instanceof(py, &table, web_assembly_table(py))? {
+            anyhow::bail!("expected WebAssembly.Table but found {}", table.as_ref(py));
         }
 
         #[cfg(feature = "tracing")]
-        tracing::debug!(value = %value.as_ref(py), ?ty, "Table::from_exported_table");
+        tracing::debug!(table = %table.as_ref(py), ?ty, "Table::from_exported_table");
 
-        let table_length: u32 = value.as_ref(py).getattr(intern!(py, "length"))?.extract()?;
+        let table_length: u32 = table.getattr(py, intern!(py, "length"))?.extract(py)?;
 
         assert!(table_length >= ty.minimum());
         assert_eq!(ty.element(), ValueType::FuncRef);
 
-        Ok(Self { ty, table: value })
+        Ok(Self { table, ty })
     }
 }
 
-fn web_assembly_table(py: Python) -> Result<&PyAny, PyErr> {
-    py.import(intern!(py, "js"))?
-        .getattr(intern!(py, "WebAssembly"))?
-        .getattr(intern!(py, "Table"))
+fn web_assembly_table(py: Python) -> &'static Py<PyAny> {
+    static WEB_ASSEMBLY_TABLE: OnceLock<Py<PyAny>> = OnceLock::new();
+    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+    WEB_ASSEMBLY_TABLE.get_or_init(|| {
+        py.import(intern!(py, "js"))
+            .unwrap()
+            .getattr(intern!(py, "WebAssembly"))
+            .unwrap()
+            .getattr(intern!(py, "Table"))
+            .unwrap()
+            .into_py(py)
+    })
 }
