@@ -7,6 +7,7 @@ use std::{
 use wasm_runtime_layer::backend::{
     AsContext, AsContextMut, WasmStore, WasmStoreContext, WasmStoreContextMut,
 };
+use wobbly::sync::Wobbly;
 
 use crate::{func::PyHostFuncFn, Engine};
 
@@ -58,7 +59,7 @@ struct StoreInner<T> {
     data: T,
     /// The user host functions, which must live in Rust and not JS to avoid a
     /// cross-language reference cycle
-    host_funcs: Vec<Arc<PyHostFuncFn>>,
+    host_funcs: Vec<Wobbly<PyHostFuncFn>>,
 }
 
 impl<T> WasmStore<T, Engine> for Store<T> {
@@ -222,10 +223,10 @@ impl<'a, T: 'a> StoreContextMut<'a, T> {
         }
     }
 
-    pub(crate) fn register_host_func(&mut self, func: Arc<PyHostFuncFn>) -> Weak<PyHostFuncFn> {
-        let weak = Arc::downgrade(&func);
-        self.store.host_funcs.push(func);
-        weak
+    pub(crate) fn register_host_func(&mut self, func: Arc<PyHostFuncFn>) -> Wobbly<PyHostFuncFn> {
+        let func = Wobbly::new(func);
+        self.store.host_funcs.push(func.clone());
+        func
     }
 }
 

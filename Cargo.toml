@@ -23,6 +23,7 @@ pyo3 = { version = "0.20", default-features = false, features = ["anyhow", "macr
 tracing = { version = "0.1", default-features = false, optional = true }
 wasmparser = { version = "0.200", default-features = false }
 wasm_runtime_layer = { version = "0.2", default-features = false }
+wobbly = { version = "0.1", default-features = false, features = ["std"] }
 
 [features]
 tracing = ["dep:tracing"]

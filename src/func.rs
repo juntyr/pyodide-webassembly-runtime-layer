@@ -14,6 +14,7 @@ use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmFunc, WasmStoreContext},
     FuncType,
 };
+use wobbly::sync::Wobbly;
 
 use crate::{
     conversion::{ToPy, ValueExt},
@@ -214,7 +215,7 @@ pub type PyHostFuncFn =
 
 #[pyclass(frozen)]
 struct PyHostFunc {
-    func: Weak<PyHostFuncFn>,
+    func: Wobbly<PyHostFuncFn>,
     _ty: FuncType,
 }
 
