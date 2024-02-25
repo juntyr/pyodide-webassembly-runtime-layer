@@ -39,9 +39,8 @@ impl WasmTable<Engine> for Table {
 
             let init = init.to_py(py);
 
-            let table = web_assembly_table(py)
-                .getattr(py, intern!(py, "new"))?
-                .call1(py, (desc, init))?;
+            let table =
+                web_assembly_table(py).call_method1(py, intern!(py, "new"), (desc, init))?;
 
             Ok(Self { table, ty })
         })

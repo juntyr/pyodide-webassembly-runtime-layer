@@ -32,9 +32,7 @@ impl WasmMemory<Engine> for Memory {
                 desc.setattr(py, intern!(py, "maximum"), maximum)?;
             }
 
-            let memory = web_assembly_memory(py)
-                .getattr(py, intern!(py, "new"))?
-                .call1(py, (desc,))?;
+            let memory = web_assembly_memory(py).call_method1(py, intern!(py, "new"), (desc,))?;
 
             Ok(Self { memory, ty })
         })

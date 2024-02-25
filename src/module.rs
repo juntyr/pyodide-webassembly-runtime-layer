@@ -32,13 +32,10 @@ impl WasmModule<Engine> for Module {
 
             let parsed = ParsedModule::parse(&bytes)?;
 
-            let buffer = uint8_array(py)
-                .getattr(py, intern!(py, "new"))?
-                .call1(py, (bytes.as_slice(),))?;
+            let buffer =
+                uint8_array(py).call_method1(py, intern!(py, "new"), (bytes.as_slice(),))?;
 
-            let module = web_assembly_module(py)
-                .getattr(py, intern!(py, "new"))?
-                .call1(py, (buffer,))?;
+            let module = web_assembly_module(py).call_method1(py, intern!(py, "new"), (buffer,))?;
 
             let parsed = Arc::new(parsed);
 

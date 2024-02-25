@@ -38,9 +38,8 @@ impl WasmGlobal<Engine> for Global {
 
             let value = value.to_py(py);
 
-            let global = web_assembly_global(py)
-                .getattr(py, intern!(py, "new"))?
-                .call1(py, (desc, value))?;
+            let global =
+                web_assembly_global(py).call_method1(py, intern!(py, "new"), (desc, value))?;
 
             Ok(Self { global, ty })
         })

@@ -33,9 +33,11 @@ impl WasmInstance<Engine> for Instance {
 
             let imports_object = create_imports_object(py, imports)?;
 
-            let instance = web_assembly_instance(py)
-                .getattr(py, intern!(py, "new"))?
-                .call1(py, (module.module(py), imports_object))?;
+            let instance = web_assembly_instance(py).call_method1(
+                py,
+                intern!(py, "new"),
+                (module.module(py), imports_object),
+            )?;
 
             let exports = instance.getattr(py, intern!(py, "exports"))?;
             let exports = process_exports(py, &exports, module)?;

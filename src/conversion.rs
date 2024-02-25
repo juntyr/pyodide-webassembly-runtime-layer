@@ -148,7 +148,7 @@ pub fn create_js_object(py: Python) -> Result<Py<PyAny>, PyErr> {
                 .unwrap()
                 .getattr(intern!(py, "Object"))
                 .unwrap()
-                .call_method0(intern!(py, "new"))
+                .getattr(intern!(py, "new"))
                 .unwrap()
                 .into_py(py)
         })
