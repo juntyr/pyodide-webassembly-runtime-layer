@@ -107,7 +107,8 @@ impl WasmFunc<Engine> for Func {
                 py,
                 PyHostFunc {
                     func: store.register_host_func(func),
-                    _ty: ty.clone(),
+                    #[cfg(feature = "tracing")]
+                    ty: ty.clone(),
                 },
             )?;
             let func = py_to_js_proxy(py, func)?;
@@ -213,7 +214,8 @@ pub type PyHostFuncFn =
 #[pyclass(frozen)]
 struct PyHostFunc {
     func: Wobbly<PyHostFuncFn>,
-    _ty: FuncType,
+    #[cfg(feature = "tracing")]
+    ty: FuncType,
 }
 
 #[pymethods]
@@ -222,7 +224,7 @@ impl PyHostFunc {
     fn __call__(&self, py: Python, args: Py<PyTuple>) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
         let _span =
-            tracing::debug_span!("call_trampoline", ?self._ty, args = %args.as_ref(py)).entered();
+            tracing::debug_span!("call_trampoline", ?self.ty, args = %args.as_ref(py)).entered();
 
         let Some(func) = self.func.upgrade() else {
             return Err(PyErr::from(anyhow::anyhow!(

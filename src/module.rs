@@ -163,10 +163,12 @@ impl ParsedModule {
                 },
                 wasmparser::Payload::TagSection(section) => {
                     for tag in section {
-                        let _tag = tag?;
+                        let tag = tag?;
 
                         #[cfg(feature = "tracing")]
-                        tracing::trace!(?_tag, "tag");
+                        tracing::trace!(?tag, "tag");
+                        #[cfg(not(feature = "tracing"))]
+                        let _ = tag;
                     }
                 },
                 wasmparser::Payload::ImportSection(section) => {
