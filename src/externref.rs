@@ -83,5 +83,9 @@ pub type AnyExternRef = dyn 'static + Any + Send + Sync;
 
 #[pyclass(frozen)]
 struct PyExternRef {
+    /// Reference to the extern ref data which is stored in the store
+    ///
+    /// If the ExternRef API is changed to decouple the downcast lifetime
+    /// from the store, this could just store the object itself.
     object: Id<Box<AnyExternRef>>,
 }

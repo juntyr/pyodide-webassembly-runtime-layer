@@ -1,5 +1,4 @@
 use std::{
-    any::Any,
     fmt,
     marker::PhantomData,
     sync::{Arc, Weak},
@@ -63,7 +62,7 @@ struct StoreInner<T> {
     /// cross-language reference cycle
     host_funcs: Vec<Wobbly<PyHostFuncFn>>,
     /// The extern refs, which must live for the lifetime of the store
-    externrefs: Arena<Box<dyn 'static + Any + Send + Sync>>,
+    externrefs: Arena<Box<AnyExternRef>>,
 }
 
 impl<T> WasmStore<T, Engine> for Store<T> {
