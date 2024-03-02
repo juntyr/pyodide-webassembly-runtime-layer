@@ -80,16 +80,17 @@ impl ValueExt for Value<Engine> {
                         value,
                     ))))
                 }
-            }
+            },
             ValueType::FuncRef => {
                 if value.is_none(py) {
                     Ok(Self::FuncRef(None))
                 } else {
                     anyhow::bail!(
-                    "conversion to a function outside of a module export is not permitted as its type signature is unknown"
-                )
+                        "conversion to a function outside of a module export is not permitted as \
+                         its type signature is unknown"
+                    )
                 }
-            }
+            },
         }
     }
 }
@@ -140,7 +141,7 @@ pub fn instanceof(py: Python, object: &Py<PyAny>, constructor: &Py<PyAny>) -> Re
                 .unwrap()
                 .call1((
                     "function isInstanceOf(object, constructor){ return (object instanceof \
-                    constructor); } isInstanceOf",
+                     constructor); } isInstanceOf",
                 ))
                 .unwrap()
                 .into_py(py)

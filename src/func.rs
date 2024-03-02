@@ -58,9 +58,8 @@ impl WasmFunc<Engine> for Func {
                     // Safety:
                     //
                     // - The proof is constructed from a mutable store context
-                    // - Calling a host function (from the host or from WASM)
-                    //   provides that call with a mutable reborrow of the
-                    //   store context
+                    // - Calling a host function (from the host or from WASM) provides that call
+                    //   with a mutable reborrow of the store context
                     let store = unsafe { StoreContextMut::from_proof_unchecked(&mut strong_store) };
 
                     let ty = &ty_clone;
@@ -80,12 +79,12 @@ impl WasmFunc<Engine> for Func {
                         Ok(()) => {
                             #[cfg(feature = "tracing")]
                             tracing::debug!(?results, "result");
-                        }
+                        },
                         Err(err) => {
                             #[cfg(feature = "tracing")]
                             tracing::error!("{err:?}");
                             return Err(err.into());
-                        }
+                        },
                     }
 
                     let results = match results.as_slice() {
@@ -168,7 +167,7 @@ impl WasmFunc<Engine> for Func {
                     {
                         *result = Value::from_py_typed(py, value.into_py(py), *ty)?;
                     }
-                }
+                },
             }
 
             Ok(())

@@ -16,30 +16,35 @@ use crate::{externref::AnyExternRef, func::PyHostFuncFn, Engine};
 pub struct Store<T> {
     /// The internal store is kept behind a pointer.
     ///
-    /// This is to allow referencing and reconstructing a calling context in exported functions,
-    /// where it is not possible to prove the correct lifetime and borrowing rules statically nor
-    /// dynamically using RefCells. This is because functions can be re-entrant with exclusive but
-    /// stacked calling contexts. [`std::cell::RefCell`] and [`std::cell::RefMut`] do not allow
-    /// for recursive usage by design (and it would be nigh impossible and quite expensive to
-    /// enforce at runtime).
+    /// This is to allow referencing and reconstructing a calling context in
+    /// exported functions, where it is not possible to prove the correct
+    /// lifetime and borrowing rules statically nor dynamically using
+    /// RefCells. This is because functions can be re-entrant with exclusive but
+    /// stacked calling contexts. [`std::cell::RefCell`] and
+    /// [`std::cell::RefMut`] do not allow for recursive usage by design
+    /// (and it would be nigh impossible and quite expensive to enforce at
+    /// runtime).
     ///
-    /// The store is stored through a raw pointer, as using a `Pin<Box<T>>` would not be possible,
-    /// despite the memory location of the Box contents technically being pinned in memory. This is
-    /// because of the stacked borrows model.
+    /// The store is stored through a raw pointer, as using a `Pin<Box<T>>`
+    /// would not be possible, despite the memory location of the Box
+    /// contents technically being pinned in memory. This is because of the
+    /// stacked borrows model.
     ///
-    /// When the outer box is moved, it invalidates all tags in its borrow stack, even
-    /// though the memory location remains. This invalidates all references and raw pointers to `T`
-    /// created from the Box.
+    /// When the outer box is moved, it invalidates all tags in its borrow
+    /// stack, even though the memory location remains. This invalidates all
+    /// references and raw pointers to `T` created from the Box.
     ///
     /// See: <https://blog.nilstrieb.dev/posts/box-is-a-unique-type/> for more details.
     ///
-    /// By using a box here, we would leave invalid pointers with revoked access permissions to the
-    /// memory location of `T`.
+    /// By using a box here, we would leave invalid pointers with revoked access
+    /// permissions to the memory location of `T`.
     ///
-    /// This creates undefined behavior as the Rust compiler will incorrectly optimize register
-    /// accesses and memory loading and incorrect no-alias attributes.
+    /// This creates undefined behavior as the Rust compiler will incorrectly
+    /// optimize register accesses and memory loading and incorrect no-alias
+    /// attributes.
     ///
-    /// To circumvent this we can use a raw pointer obtained from unwrapping a Box.
+    /// To circumvent this we can use a raw pointer obtained from unwrapping a
+    /// Box.
     ///
     /// # Playground
     ///
@@ -98,7 +103,8 @@ impl<T> WasmStore<T, Engine> for Store<T> {
 
         // Safety:
         //
-        // This is the only read from self, which will not be dropped, so no duplication occurs
+        // This is the only read from self, which will not be dropped, so no duplication
+        // occurs
         let inner = Arc::into_inner(unsafe { std::ptr::read(&this.inner) })
             .expect("Store owns the only strong reference to StoreInner");
 
@@ -125,7 +131,8 @@ impl<T> AsContextMut<Engine> for Store<T> {
     fn as_context_mut(&mut self) -> StoreContextMut<'_, T> {
         // Safety:
         //
-        // A mutable reference to the store signifies mutable ownership, and is thus safe.
+        // A mutable reference to the store signifies mutable ownership, and is thus
+        // safe.
         let store = unsafe { &mut *self.inner.as_ptr() };
 
         StoreContextMut {
@@ -171,14 +178,16 @@ impl<T> Store<T> {
     fn as_inner(&self) -> &StoreInner<T> {
         // Safety:
         //
-        // A shared reference to the store signifies a non-mutable ownership, and is thus safe.
+        // A shared reference to the store signifies a non-mutable ownership, and is
+        // thus safe.
         unsafe { &*self.inner.as_ptr() }
     }
 
     fn as_inner_mut(&mut self) -> &mut StoreInner<T> {
         // Safety:
         //
-        // A mutable reference to the store signifies mutable ownership, and is thus safe.
+        // A mutable reference to the store signifies mutable ownership, and is thus
+        // safe.
         unsafe { &mut *self.inner.as_ptr() }
     }
 }

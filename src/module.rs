@@ -129,7 +129,7 @@ impl ParsedModule {
 
                         types.push(ty);
                     }
-                }
+                },
                 wasmparser::Payload::FunctionSection(section) => {
                     for type_index in section {
                         let type_index = type_index?;
@@ -138,25 +138,25 @@ impl ParsedModule {
 
                         functions.push(ty.clone());
                     }
-                }
+                },
                 wasmparser::Payload::TableSection(section) => {
                     for table in section {
                         let table = table?;
                         tables.push(TableType::from_parsed(&table.ty));
                     }
-                }
+                },
                 wasmparser::Payload::MemorySection(section) => {
                     for memory in section {
                         let memory = memory?;
                         memories.push(MemoryType::from_parsed(&memory)?);
                     }
-                }
+                },
                 wasmparser::Payload::GlobalSection(section) => {
                     for global in section {
                         let global = global?;
                         globals.push(GlobalType::from_parsed(global.ty));
                     }
-                }
+                },
                 wasmparser::Payload::TagSection(section) => {
                     for tag in section {
                         let _tag = tag?;
@@ -164,7 +164,7 @@ impl ParsedModule {
                         #[cfg(feature = "tracing")]
                         tracing::trace!(?_tag, "tag");
                     }
-                }
+                },
                 wasmparser::Payload::ImportSection(section) => {
                     for import in section {
                         let import = import?;
@@ -173,27 +173,27 @@ impl ParsedModule {
                                 let sig = types[index as usize].clone().with_name(import.name);
                                 functions.push(sig.clone());
                                 ExternType::Func(sig)
-                            }
+                            },
                             wasmparser::TypeRef::Table(ty) => {
                                 tables.push(TableType::from_parsed(&ty));
                                 ExternType::Table(TableType::from_parsed(&ty))
-                            }
+                            },
                             wasmparser::TypeRef::Memory(ty) => {
                                 memories.push(MemoryType::from_parsed(&ty)?);
                                 ExternType::Memory(MemoryType::from_parsed(&ty)?)
-                            }
+                            },
                             wasmparser::TypeRef::Global(ty) => {
                                 globals.push(GlobalType::from_parsed(ty));
                                 ExternType::Global(GlobalType::from_parsed(ty))
-                            }
+                            },
                             wasmparser::TypeRef::Tag(_) => {
                                 unimplemented!("WebAssembly.Tag is not yet supported")
-                            }
+                            },
                         };
 
                         imports.insert((import.module.to_string(), import.name.to_string()), ty);
                     }
-                }
+                },
                 wasmparser::Payload::ExportSection(section) => {
                     for export in section {
                         let export = export?;
@@ -201,18 +201,18 @@ impl ParsedModule {
                         let ty = match export.kind {
                             wasmparser::ExternalKind::Func => {
                                 ExternType::Func(functions[index].clone().with_name(export.name))
-                            }
+                            },
                             wasmparser::ExternalKind::Table => ExternType::Table(tables[index]),
                             wasmparser::ExternalKind::Memory => ExternType::Memory(memories[index]),
                             wasmparser::ExternalKind::Global => ExternType::Global(globals[index]),
                             wasmparser::ExternalKind::Tag => {
                                 unimplemented!("WebAssembly.Tag is not yet supported")
-                            }
+                            },
                         };
 
                         exports.insert(export.name.to_string(), ty);
                     }
-                }
+                },
                 wasmparser::Payload::ElementSection(section) => {
                     for element in section {
                         let element = element?;
@@ -226,7 +226,7 @@ impl ParsedModule {
                         #[cfg(not(feature = "tracing"))]
                         let _ = element;
                     }
-                }
+                },
                 wasmparser::Payload::Version { .. }
                 | wasmparser::Payload::StartSection { .. }
                 | wasmparser::Payload::DataCountSection { .. }
@@ -246,7 +246,7 @@ impl ParsedModule {
                 | wasmparser::Payload::ComponentExportSection(_)
                 | wasmparser::Payload::CustomSection(_)
                 | wasmparser::Payload::UnknownSection { .. }
-                | wasmparser::Payload::End(_) => {}
+                | wasmparser::Payload::End(_) => {},
             }
 
             anyhow::Ok(())

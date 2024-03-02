@@ -6,8 +6,7 @@ use wasm_runtime_layer::backend::{AsContextMut, WasmExternRef};
 
 use crate::{
     conversion::{py_to_js_proxy, ToPy},
-    store::StoreContext,
-    store::StoreContextMut,
+    store::{StoreContext, StoreContextMut},
     Engine,
 };
 
