@@ -259,6 +259,8 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     any::TypeId,
     marker::PhantomData,
@@ -368,7 +370,8 @@
                 py,
                 PyHostFunc {
                     func: store.register_host_func(func),
-                    _ty: ty.clone(),
+                    <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
+                    </span>ty: ty.clone(),
                 },
             )<span class="question-mark">?</span>;
             <span class="kw">let </span>func = py_to_js_proxy(py, func)<span class="question-mark">?</span>;
@@ -474,7 +477,8 @@
 <span class="attr">#[pyclass(frozen)]
 </span><span class="kw">struct </span>PyHostFunc {
     func: Wobbly&lt;PyHostFuncFn&gt;,
-    _ty: FuncType,
+    <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
+    </span>ty: FuncType,
 }
 
 <span class="attr">#[pymethods]
@@ -483,7 +487,7 @@
     </span><span class="kw">fn </span>__call__(<span class="kw-2">&amp;</span><span class="self">self</span>, py: Python, args: Py&lt;PyTuple&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Py&lt;PyAny&gt;, PyErr&gt; {
         <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
         </span><span class="kw">let </span>_span =
-            <span class="macro">tracing::debug_span!</span>(<span class="string">"call_trampoline"</span>, <span class="question-mark">?</span><span class="self">self</span>._ty, args = %args.as_ref(py)).entered();
+            <span class="macro">tracing::debug_span!</span>(<span class="string">"call_trampoline"</span>, <span class="question-mark">?</span><span class="self">self</span>.ty, args = %args.as_ref(py)).entered();
 
         <span class="kw">let </span><span class="prelude-val">Some</span>(func) = <span class="self">self</span>.func.upgrade() <span class="kw">else </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(PyErr::from(<span class="macro">anyhow::anyhow!</span>(
