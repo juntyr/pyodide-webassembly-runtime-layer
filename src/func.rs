@@ -13,10 +13,14 @@ use wobbly::sync::Wobbly;
 
 use crate::{
     conversion::{py_to_js_proxy, ToPy, ValueExt},
-    Engine, StoreContextMut,
+    store::StoreContextMut,
+    Engine,
 };
 
-/// A bound function
+/// A bound function, which may be an export from a WASM [`Instance`] or a host
+/// function.
+///
+/// [`Instance`]: crate::instance::Instance
 #[derive(Clone, Debug)]
 pub struct Func {
     /// The inner function

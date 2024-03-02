@@ -12,7 +12,11 @@ use crate::{
     Engine, Func, Global, Memory, Module, Table,
 };
 
-/// A WebAssembly Instance
+/// An instantiated instance of a WASM [`Module`].
+///
+/// This type wraps a [`WebAssembly.Instance`] from the JavaScript API.
+///
+/// [`WebAssembly.Instance`]: https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Instance
 #[derive(Clone, Debug)]
 pub struct Instance {
     /// The inner instance

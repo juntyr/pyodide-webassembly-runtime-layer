@@ -10,7 +10,7 @@ use crate::{
     Engine,
 };
 
-/// Extern host reference type
+/// Extern host reference type.
 #[derive(Clone, Debug)]
 pub struct ExternRef {
     /// The inner extern ref object

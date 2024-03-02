@@ -12,7 +12,11 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-/// A WebAssembly Memory
+/// A WASM memory.
+///
+/// This type wraps a [`WebAssembly.Memory`] from the JavaScript API.
+///
+/// [`WebAssembly.Memory`]: https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Memory
 pub struct Memory {
     /// The memory value
     memory: Py<PyAny>,

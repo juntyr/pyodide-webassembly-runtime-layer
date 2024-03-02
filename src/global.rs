@@ -11,7 +11,11 @@ use crate::{
     Engine,
 };
 
-/// A global variable accesible as an import or export in a module
+/// A global variable accesible as an import or export in a module.
+///
+/// This type wraps a [`WebAssembly.Global`] from the JavaScript API.
+///
+/// [`WebAssembly.Global`]: https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Global
 #[derive(Debug, Clone)]
 pub struct Global {
     /// The global value

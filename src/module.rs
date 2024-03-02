@@ -11,7 +11,11 @@ use wasm_runtime_layer::{
 use crate::{conversion::uint8_array, Engine};
 
 #[derive(Clone, Debug)]
-/// A WebAssembly Module
+/// A WASM module.
+///
+/// This type wraps a [`WebAssembly.Module`] from the JavaScript API.
+///
+/// [`WebAssembly.Module`]: https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Module
 pub struct Module {
     /// The inner module
     module: Py<PyAny>,

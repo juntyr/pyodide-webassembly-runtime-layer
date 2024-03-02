@@ -34,9 +34,9 @@
 //! [`wasm-bindgen`] crates to generate JavaScript-based bindings to the
 //! [`WebAssembly`] JavaScript API, this crate uses [`Pyodide`]'s [`js`] FFI
 //! layer to interact with [`WebAssembly`] through Python running inside
-//! WebAssembly. `pyodide-webassembly-runtime-layer` is therefore useful when
+//! WASM. `pyodide-webassembly-runtime-layer` is therefore useful when
 //! developing a Python module in Rust, e.g. using [`PyO3`], which requires
-//! access to some WebAssembly runtime using the [`wasm_runtime_layer`] API and
+//! access to some WASM runtime using the [`wasm_runtime_layer`] API and
 //! may be deployed to the web itself using [`Pyodide`].
 //!
 //! ## Memory Management
@@ -83,24 +83,14 @@
 
 use wasm_runtime_layer::backend::WasmEngine;
 
-/// Conversion to and from Python
 mod conversion;
-/// Extern host references
 mod externref;
-/// Functions
 mod func;
-/// Globals
 mod global;
-/// Instances
 mod instance;
-/// Memories
 mod memory;
-/// WebAssembly modules
 mod module;
-/// Stores all the WebAssembly state for a given collection of modules with a
-/// similar lifetime
 mod store;
-/// WebAssembly tables
 mod table;
 
 pub use externref::ExternRef;
@@ -113,7 +103,9 @@ pub use store::{Store, StoreContext, StoreContextMut};
 pub use table::Table;
 
 #[derive(Default, Debug, Clone)]
-/// Runtime for WebAssembly
+/// Runtime for [`WebAssembly`] web runtime.
+///
+/// [`WebAssembly`]: https://developer.mozilla.org/en-US/docs/WebAssembly
 pub struct Engine {
     _private: (),
 }

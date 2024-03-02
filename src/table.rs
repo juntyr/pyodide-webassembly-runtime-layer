@@ -12,7 +12,11 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
-/// A WebAssembly table
+/// A WASM table.
+///
+/// This type wraps a [`WebAssembly.Table`] from the JavaScript API.
+///
+/// [`WebAssembly.Table`]: https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Table
 pub struct Table {
     /// Table reference
     table: Py<PyAny>,

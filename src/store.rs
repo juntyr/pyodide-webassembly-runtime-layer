@@ -12,7 +12,8 @@ use wobbly::sync::Wobbly;
 
 use crate::{externref::AnyExternRef, func::PyHostFuncFn, Engine};
 
-/// A collection of WebAssembly instances and host-defined state
+/// A store for the [`Engine`], which stores host-defined data `T` and internal
+/// state.
 pub struct Store<T> {
     /// The internal store is kept behind a pointer.
     ///
