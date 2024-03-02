@@ -1,15 +1,17 @@
 use std::{
+    any::Any,
     fmt,
     marker::PhantomData,
     sync::{Arc, Weak},
 };
 
+use id_arena::{Arena, Id};
 use wasm_runtime_layer::backend::{
     AsContext, AsContextMut, WasmStore, WasmStoreContext, WasmStoreContextMut,
 };
 use wobbly::sync::Wobbly;
 
-use crate::{func::PyHostFuncFn, Engine};
+use crate::{externref::AnyExternRef, func::PyHostFuncFn, Engine};
 
 /// A collection of WebAssembly instances and host-defined state
 pub struct Store<T> {
@@ -60,6 +62,8 @@ struct StoreInner<T> {
     /// The user host functions, which must live in Rust and not JS to avoid a
     /// cross-language reference cycle
     host_funcs: Vec<Wobbly<PyHostFuncFn>>,
+    /// The extern refs, which must live for the lifetime of the store
+    externrefs: Arena<Box<dyn 'static + Any + Send + Sync>>,
 }
 
 impl<T> WasmStore<T, Engine> for Store<T> {
@@ -72,6 +76,7 @@ impl<T> WasmStore<T, Engine> for Store<T> {
                 engine: engine.clone(),
                 data,
                 host_funcs: Vec::new(),
+                externrefs: Arena::new(),
             })))),
             _marker: PhantomData::<T>,
         }
@@ -188,6 +193,19 @@ pub struct StoreContext<'a, T: 'a> {
     proof: &'a Arc<StoreProof>,
 }
 
+impl<'a, T: 'a> StoreContext<'a, T> {
+    pub(crate) fn get_externref(
+        &self,
+        id: Id<Box<AnyExternRef>>,
+    ) -> anyhow::Result<&'a AnyExternRef> {
+        let Some(object) = self.store.externrefs.get(id) else {
+            anyhow::bail!("extern ref is from a different store");
+        };
+
+        Ok(object)
+    }
+}
+
 #[allow(clippy::module_name_repetitions)]
 /// Mutable context to the store
 pub struct StoreContextMut<'a, T: 'a> {
@@ -227,6 +245,13 @@ impl<'a, T: 'a> StoreContextMut<'a, T> {
         let func = Wobbly::new(func);
         self.store.host_funcs.push(func.clone());
         func
+    }
+
+    pub(crate) fn register_externref(
+        &mut self,
+        object: Box<AnyExternRef>,
+    ) -> Id<Box<AnyExternRef>> {
+        self.store.externrefs.alloc(object)
     }
 }
 

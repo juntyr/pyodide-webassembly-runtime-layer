@@ -93,17 +93,20 @@ impl Global {
     /// Creates a new global from a Python value
     pub(crate) fn from_exported_global(
         py: Python,
-        value: Py<PyAny>,
+        global: Py<PyAny>,
         ty: GlobalType,
     ) -> anyhow::Result<Self> {
-        if !instanceof(py, &value, web_assembly_global(py))? {
-            anyhow::bail!("expected WebAssembly.Global but found {}", value.as_ref(py));
+        if !instanceof(py, &global, web_assembly_global(py))? {
+            anyhow::bail!(
+                "expected WebAssembly.Global but found {}",
+                global.as_ref(py)
+            );
         }
 
         #[cfg(feature = "tracing")]
-        tracing::debug!(value = %value.as_ref(py), ?ty, "Global::from_exported_global");
+        tracing::debug!(global = %global.as_ref(py), ?ty, "Global::from_exported_global");
 
-        Ok(Self { global: value, ty })
+        Ok(Self { global, ty })
     }
 }
 

@@ -1,15 +1,10 @@
 use std::{
     any::TypeId,
     marker::PhantomData,
-    sync::{Arc, OnceLock, Weak},
+    sync::{Arc, Weak},
 };
 
-use pyo3::{
-    intern,
-    prelude::*,
-    types::{IntoPyDict, PyTuple},
-    PyTypeInfo,
-};
+use pyo3::{prelude::*, types::PyTuple, PyTypeInfo};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmFunc, WasmStoreContext},
     FuncType,
@@ -17,7 +12,7 @@ use wasm_runtime_layer::{
 use wobbly::sync::Wobbly;
 
 use crate::{
-    conversion::{ToPy, ValueExt},
+    conversion::{py_to_js_proxy, ToPy, ValueExt},
     Engine, StoreContextMut,
 };
 
@@ -26,7 +21,6 @@ use crate::{
 pub struct Func {
     /// The inner function
     func: Py<PyAny>,
-    // func: GuestOrHostFunc,
     /// The function signature
     ty: FuncType,
     /// The user state type of the context
@@ -259,26 +253,4 @@ fn non_static_type_id<T: ?Sized>(_x: &T) -> TypeId {
     NonStaticAny::get_type_id(unsafe {
         core::mem::transmute::<&dyn NonStaticAny, &(dyn NonStaticAny + 'static)>(&phantom_data)
     })
-}
-
-fn py_to_js_proxy(py: Python, object: Py<PyHostFunc>) -> Result<Py<PyAny>, PyErr> {
-    fn to_js(py: Python) -> &'static Py<PyAny> {
-        static TO_JS: OnceLock<Py<PyAny>> = OnceLock::new();
-        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        TO_JS.get_or_init(|| {
-            py.import(intern!(py, "pyodide"))
-                .unwrap()
-                .getattr(intern!(py, "ffi"))
-                .unwrap()
-                .getattr(intern!(py, "to_js"))
-                .unwrap()
-                .into_py(py)
-        })
-    }
-
-    to_js(py).call(
-        py,
-        (object,),
-        Some([(intern!(py, "create_pyproxies"), true)].into_py_dict(py)),
-    )
 }

@@ -1,12 +1,12 @@
 use std::sync::OnceLock;
 
-use pyo3::{intern, prelude::*};
+use pyo3::{intern, prelude::*, types::IntoPyDict};
 use wasm_runtime_layer::{
     backend::{Extern, Value},
     ValueType,
 };
 
-use crate::Engine;
+use crate::{Engine, ExternRef};
 
 /// Converts a Rust type to Python
 pub trait ToPy {
@@ -72,10 +72,23 @@ impl ValueExt for Value<Engine> {
             ValueType::I64 => Ok(Self::I64(value.extract(py)?)),
             ValueType::F32 => Ok(Self::F32(value.extract(py)?)),
             ValueType::F64 => Ok(Self::F64(value.extract(py)?)),
-            ValueType::FuncRef | ValueType::ExternRef => {
-                anyhow::bail!(
-                    "conversion to a function or extern outside of a module not permitted"
+            ValueType::ExternRef => {
+                if value.is_none(py) {
+                    Ok(Self::ExternRef(None))
+                } else {
+                    Ok(Self::ExternRef(Some(ExternRef::from_exported_externref(
+                        value,
+                    ))))
+                }
+            }
+            ValueType::FuncRef => {
+                if value.is_none(py) {
+                    Ok(Self::FuncRef(None))
+                } else {
+                    anyhow::bail!(
+                    "conversion to a function outside of a module export is not permitted as its type signature is unknown"
                 )
+                }
             }
         }
     }
@@ -155,4 +168,26 @@ pub fn create_js_object(py: Python) -> Result<Py<PyAny>, PyErr> {
     }
 
     js_object_new(py).call0(py)
+}
+
+pub fn py_to_js_proxy(py: Python, object: impl IntoPy<Py<PyAny>>) -> Result<Py<PyAny>, PyErr> {
+    fn to_js(py: Python) -> &'static Py<PyAny> {
+        static TO_JS: OnceLock<Py<PyAny>> = OnceLock::new();
+        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+        TO_JS.get_or_init(|| {
+            py.import(intern!(py, "pyodide"))
+                .unwrap()
+                .getattr(intern!(py, "ffi"))
+                .unwrap()
+                .getattr(intern!(py, "to_js"))
+                .unwrap()
+                .into_py(py)
+        })
+    }
+
+    to_js(py).call(
+        py,
+        (object,),
+        Some([(intern!(py, "create_pyproxies"), true)].into_py_dict(py)),
+    )
 }
