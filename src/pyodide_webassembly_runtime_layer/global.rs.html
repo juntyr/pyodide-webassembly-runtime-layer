@@ -125,6 +125,10 @@
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
 <a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::OnceLock;
 
 <span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>};
@@ -138,7 +142,11 @@
     Engine,
 };
 
-<span class="doccomment">/// A global variable accesible as an import or export in a module
+<span class="doccomment">/// A global variable accesible as an import or export in a module.
+///
+/// This type wraps a [`WebAssembly.Global`] from the JavaScript API.
+///
+/// [`WebAssembly.Global`]: https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Global
 </span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Global {
     <span class="doccomment">/// The global value

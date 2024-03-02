@@ -170,6 +170,10 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::OnceLock;
 
 <span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>, types::PyBytes};
@@ -184,7 +188,11 @@
 };
 
 <span class="attr">#[derive(Clone, Debug)]
-</span><span class="doccomment">/// A WebAssembly Memory
+</span><span class="doccomment">/// A WASM memory.
+///
+/// This type wraps a [`WebAssembly.Memory`] from the JavaScript API.
+///
+/// [`WebAssembly.Memory`]: https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Memory
 </span><span class="kw">pub struct </span>Memory {
     <span class="doccomment">/// The memory value
     </span>memory: Py&lt;PyAny&gt;,

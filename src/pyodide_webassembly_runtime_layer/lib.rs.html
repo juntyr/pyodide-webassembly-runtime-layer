@@ -124,14 +124,6 @@
 <a href="#122" id="122">122</a>
 <a href="#123" id="123">123</a>
 <a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
-<a href="#126" id="126">126</a>
-<a href="#127" id="127">127</a>
-<a href="#128" id="128">128</a>
-<a href="#129" id="129">129</a>
-<a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(clippy::complexity)]
 #![deny(clippy::correctness)]
 #![warn(clippy::nursery)]
@@ -168,9 +160,9 @@
 //! [`wasm-bindgen`] crates to generate JavaScript-based bindings to the
 //! [`WebAssembly`] JavaScript API, this crate uses [`Pyodide`]'s [`js`] FFI
 //! layer to interact with [`WebAssembly`] through Python running inside
-//! WebAssembly. `pyodide-webassembly-runtime-layer` is therefore useful when
+//! WASM. `pyodide-webassembly-runtime-layer` is therefore useful when
 //! developing a Python module in Rust, e.g. using [`PyO3`], which requires
-//! access to some WebAssembly runtime using the [`wasm_runtime_layer`] API and
+//! access to some WASM runtime using the [`wasm_runtime_layer`] API and
 //! may be deployed to the web itself using [`Pyodide`].
 //!
 //! ## Memory Management
@@ -217,25 +209,15 @@
 
 </span><span class="kw">use </span>wasm_runtime_layer::backend::WasmEngine;
 
-<span class="doccomment">/// Conversion to and from Python
-</span><span class="kw">mod </span>conversion;
-<span class="doccomment">/// Extern host references
-</span><span class="kw">mod </span>externref;
-<span class="doccomment">/// Functions
-</span><span class="kw">mod </span>func;
-<span class="doccomment">/// Globals
-</span><span class="kw">mod </span>global;
-<span class="doccomment">/// Instances
-</span><span class="kw">mod </span>instance;
-<span class="doccomment">/// Memories
-</span><span class="kw">mod </span>memory;
-<span class="doccomment">/// WebAssembly modules
-</span><span class="kw">mod </span>module;
-<span class="doccomment">/// Stores all the WebAssembly state for a given collection of modules with a
-/// similar lifetime
-</span><span class="kw">mod </span>store;
-<span class="doccomment">/// WebAssembly tables
-</span><span class="kw">mod </span>table;
+<span class="kw">mod </span>conversion;
+<span class="kw">mod </span>externref;
+<span class="kw">mod </span>func;
+<span class="kw">mod </span>global;
+<span class="kw">mod </span>instance;
+<span class="kw">mod </span>memory;
+<span class="kw">mod </span>module;
+<span class="kw">mod </span>store;
+<span class="kw">mod </span>table;
 
 <span class="kw">pub use </span>externref::ExternRef;
 <span class="kw">pub use </span>func::Func;
@@ -247,7 +229,9 @@
 <span class="kw">pub use </span>table::Table;
 
 <span class="attr">#[derive(Default, Debug, Clone)]
-</span><span class="doccomment">/// Runtime for WebAssembly
+</span><span class="doccomment">/// Runtime for [`WebAssembly`] web runtime.
+///
+/// [`WebAssembly`]: https://developer.mozilla.org/en-US/docs/WebAssembly
 </span><span class="kw">pub struct </span>Engine {
     _private: (),
 }

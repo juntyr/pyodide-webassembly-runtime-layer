@@ -164,6 +164,10 @@
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, sync::OnceLock};
 
 <span class="kw">use </span>fxhash::FxHashMap;
@@ -178,7 +182,11 @@
     Engine, Func, Global, Memory, Module, Table,
 };
 
-<span class="doccomment">/// A WebAssembly Instance
+<span class="doccomment">/// An instantiated instance of a WASM [`Module`].
+///
+/// This type wraps a [`WebAssembly.Instance`] from the JavaScript API.
+///
+/// [`WebAssembly.Instance`]: https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Instance
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>Instance {
     <span class="doccomment">/// The inner instance
