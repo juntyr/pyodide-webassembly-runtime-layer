@@ -1,0 +1,1 @@
+window.ALL_CRATES = ["pyodide_webassembly_runtime_layer"];
