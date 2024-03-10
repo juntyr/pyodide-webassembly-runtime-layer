@@ -1,90 +1,94 @@
-use std::any::Any;
+use std::{any::Any, sync::Arc};
 
-use id_arena::Id;
 use pyo3::prelude::*;
 use wasm_runtime_layer::backend::{AsContextMut, WasmExternRef};
 
 use crate::{
     conversion::{py_to_js_proxy, ToPy},
-    store::{StoreContext, StoreContextMut},
+    store::StoreContext,
     Engine,
 };
 
 /// Extern host reference type.
 #[derive(Clone, Debug)]
 pub struct ExternRef {
-    /// The inner extern ref object
-    object: Py<PyAny>,
+    /// The inner extern ref object, for host access, optional
+    host: Option<Arc<AnyExternRef>>,
+    /// The inner extern ref object, for guest access, opaque
+    guest: Py<PyAny>,
 }
 
 impl WasmExternRef<Engine> for ExternRef {
-    fn new<T: 'static + Send + Sync>(
-        mut ctx: impl AsContextMut<Engine>,
-        object: Option<T>,
-    ) -> Self {
-        Python::with_gil(|py| {
-            // see https://github.com/DouglasDwyer/wasm_runtime_layer/issues/5
-            let Some(object) = object else {
-                anyhow::bail!("use `None` instead of `Some(ExternRef(None))`");
-            };
-            let object = Box::new(object);
+    fn new<T: 'static + Send + Sync>(_ctx: impl AsContextMut<Engine>, object: T) -> Self {
+        Python::with_gil(|py| -> Result<Self, PyErr> {
+            let object: Arc<AnyExternRef> = Arc::new(object);
 
-            let mut store: StoreContextMut<_> = ctx.as_context_mut();
-
-            let object = Py::new(
+            let guest = Py::new(
                 py,
                 PyExternRef {
-                    object: store.register_externref(object),
+                    object: Arc::clone(&object),
                 },
             )?;
-            let object = py_to_js_proxy(py, object)?;
+            let guest = py_to_js_proxy(py, guest)?;
 
-            Ok(Self { object })
+            Ok(Self {
+                host: Some(object),
+                guest,
+            })
         })
         .unwrap()
     }
 
-    fn downcast<'a, T: 'static, S: 'a>(
-        &self,
-        ctx: StoreContext<'a, S>,
-    ) -> anyhow::Result<Option<&'a T>> {
-        Python::with_gil(|py| {
-            let Ok(object): Result<Py<PyExternRef>, _> = self.object.extract(py) else {
-                anyhow::bail!("extern ref is from a different source");
-            };
-            let object = object.as_ref(py).try_borrow().map_err(PyErr::from)?;
+    fn downcast<'a, 's: 'a, T: 'static, S: 's>(
+        &'a self,
+        _ctx: StoreContext<'s, S>,
+    ) -> anyhow::Result<&'a T> {
+        // Check if we have a host-accessible non-opaque reference to the data
+        let Some(object) = self.host.as_ref() else {
+            anyhow::bail!("extern ref is from a different source");
+        };
 
-            let object: &'a AnyExternRef = ctx.get_externref(object.object)?;
+        let Some(object) = object.downcast_ref() else {
+            anyhow::bail!("incorrect extern ref type");
+        };
 
-            let Some(object) = object.downcast_ref() else {
-                anyhow::bail!("incorrect extern ref type");
-            };
-
-            Ok(Some(object))
-        })
+        Ok(object)
     }
 }
 
 impl ToPy for ExternRef {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        self.object.clone_ref(py)
+        self.guest.clone_ref(py)
     }
 }
 
 impl ExternRef {
     /// Creates a new extern ref from a Python value
     pub(crate) fn from_exported_externref(object: Py<PyAny>) -> Self {
-        Self { object }
+        Python::with_gil(|py| {
+            // Check if this ExternRef comes from this source,
+            //  if not, return an opaque ExternRef
+            let Ok(host): Result<Py<PyExternRef>, _> = object.extract(py) else {
+                return Self {
+                    host: None,
+                    guest: object,
+                };
+            };
+
+            let host = Arc::clone(&host.as_ref(py).get().object);
+
+            Self {
+                host: Some(host),
+                guest: object,
+            }
+        })
     }
 }
 
-pub type AnyExternRef = dyn 'static + Any + Send + Sync;
+type AnyExternRef = dyn 'static + Any + Send + Sync;
 
 #[pyclass(frozen)]
 struct PyExternRef {
-    /// Reference to the extern ref data which is stored in the store
-    ///
-    /// If the ExternRef API is changed to decouple the downcast lifetime
-    /// from the store, this could just store the object itself.
-    object: Id<Box<AnyExternRef>>,
+    /// The inner extern ref data
+    object: Arc<AnyExternRef>,
 }

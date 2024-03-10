@@ -51,7 +51,7 @@
 //! memory leak that is avoided with a different [`wasm_runtime_layer`] backend,
 //! please [report it as a bug][new-issue].
 //!
-//! There are a few exceptions to the intuitive memory management strategy:
+//! There is one exception to the intuitive memory management strategy:
 //!
 //! - [`Func::new`] creates a host function, which may capture arbitrary data.
 //!   To avoid cross-language reference cycles, it is stored using [`wobbly`]
@@ -59,11 +59,6 @@
 //!   the host function and its data are dropped once either the [`Store`] is
 //!   dropped or references to the [`Func`] are dropped, additional bookkeeping
 //!   data is required until both have been dropped.
-//!
-//! - The [`ExternRef::downcast`] API requires that the data stored inside an
-//!   [`ExternRef`] lives (at least) as long as its associated [`Store`].
-//!   Therefore, the data is stored inside the [`Store`] and is only dropped
-//!   once the [`Store`] is dropped.
 //!
 //! [`wasm_runtime_layer`]: https://docs.rs/wasm_runtime_layer/0.2/
 //! [`WebAssembly`]: https://developer.mozilla.org/en-US/docs/WebAssembly
@@ -78,8 +73,6 @@
 //! [`wobbly`]: https://docs.rs/wobbly/0.1/
 //! [`Func`]: https://docs.rs/wasm_runtime_layer/0.2/wasm_runtime_layer/struct.Func.html
 //! [`Store`]: https://docs.rs/wasm_runtime_layer/0.2/wasm_runtime_layer/struct.Store.html
-//! [`ExternRef::downcast`]: https://docs.rs/wasm_runtime_layer/0.2/wasm_runtime_layer/struct.ExternRef.html#method.downcast
-//! [`ExternRef`]: https://docs.rs/wasm_runtime_layer/0.2/wasm_runtime_layer/struct.ExternRef.html
 
 use wasm_runtime_layer::backend::WasmEngine;
 

@@ -1,6 +1,6 @@
 [package]
 name = "pyodide-webassembly-runtime-layer"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.70"
 license = "MIT OR Apache-2.0"
@@ -19,11 +19,10 @@ WebAssembly runtime, exposed through Pyodide.
 [dependencies]
 anyhow = { version = "1.0", default-features = false, features = ["std"] }
 fxhash = { version = "0.2", default-features = false }
-id-arena = { version = "2.2", default-features = false, features = ["std"] }
-pyo3 = { version = "0.20", default-features = false, features = ["anyhow", "macros"] }
+pyo3 = { version = "0.20", default-features = false, features = ["anyhow", "macros", "abi3"] }
 tracing = { version = "0.1", default-features = false, optional = true }
 wasmparser = { version = "0.201", default-features = false }
-wasm_runtime_layer = { version = "0.2", default-features = false }
+wasm_runtime_layer = { version = "0.3", default-features = false }
 wobbly = { version = "0.1", default-features = false, features = ["std"] }
 
 [features]
