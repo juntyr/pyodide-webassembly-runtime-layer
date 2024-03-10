@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/externref.rs`."><title>externref.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e935ef01ae1c1829.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.78.0-nightly (2dceda4f3 2024-03-01)" data-channel="nightly" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-12cf3b4f4f9dc36d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/externref.rs`."><title>externref.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e935ef01ae1c1829.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.78.0-nightly (2d24fe591 2024-03-09)" data-channel="nightly" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-12cf3b4f4f9dc36d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pyodide_webassembly_runtime_layer/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -90,94 +90,102 @@
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::any::Any;
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{any::Any, sync::Arc};
 
-<span class="kw">use </span>id_arena::Id;
 <span class="kw">use </span>pyo3::prelude::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasm_runtime_layer::backend::{AsContextMut, WasmExternRef};
 
 <span class="kw">use crate</span>::{
     conversion::{py_to_js_proxy, ToPy},
-    store::{StoreContext, StoreContextMut},
+    store::StoreContext,
     Engine,
 };
 
 <span class="doccomment">/// Extern host reference type.
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>ExternRef {
-    <span class="doccomment">/// The inner extern ref object
-    </span>object: Py&lt;PyAny&gt;,
+    <span class="doccomment">/// The inner extern ref object, for host access, optional
+    </span>host: <span class="prelude-ty">Option</span>&lt;Arc&lt;AnyExternRef&gt;&gt;,
+    <span class="doccomment">/// The inner extern ref object, for guest access, opaque
+    </span>guest: Py&lt;PyAny&gt;,
 }
 
 <span class="kw">impl </span>WasmExternRef&lt;Engine&gt; <span class="kw">for </span>ExternRef {
-    <span class="kw">fn </span>new&lt;T: <span class="lifetime">'static </span>+ Send + Sync&gt;(
-        <span class="kw-2">mut </span>ctx: <span class="kw">impl </span>AsContextMut&lt;Engine&gt;,
-        object: <span class="prelude-ty">Option</span>&lt;T&gt;,
-    ) -&gt; <span class="self">Self </span>{
-        Python::with_gil(|py| {
-            <span class="comment">// see https://github.com/DouglasDwyer/wasm_runtime_layer/issues/5
-            </span><span class="kw">let </span><span class="prelude-val">Some</span>(object) = object <span class="kw">else </span>{
-                <span class="macro">anyhow::bail!</span>(<span class="string">"use `None` instead of `Some(ExternRef(None))`"</span>);
-            };
-            <span class="kw">let </span>object = Box::new(object);
+    <span class="kw">fn </span>new&lt;T: <span class="lifetime">'static </span>+ Send + Sync&gt;(_ctx: <span class="kw">impl </span>AsContextMut&lt;Engine&gt;, object: T) -&gt; <span class="self">Self </span>{
+        Python::with_gil(|py| -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, PyErr&gt; {
+            <span class="kw">let </span>object: Arc&lt;AnyExternRef&gt; = Arc::new(object);
 
-            <span class="kw">let </span><span class="kw-2">mut </span>store: StoreContextMut&lt;<span class="kw">_</span>&gt; = ctx.as_context_mut();
-
-            <span class="kw">let </span>object = Py::new(
+            <span class="kw">let </span>guest = Py::new(
                 py,
                 PyExternRef {
-                    object: store.register_externref(object),
+                    object: Arc::clone(<span class="kw-2">&amp;</span>object),
                 },
             )<span class="question-mark">?</span>;
-            <span class="kw">let </span>object = py_to_js_proxy(py, object)<span class="question-mark">?</span>;
+            <span class="kw">let </span>guest = py_to_js_proxy(py, guest)<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ object })
+            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                host: <span class="prelude-val">Some</span>(object),
+                guest,
+            })
         })
         .unwrap()
     }
 
-    <span class="kw">fn </span>downcast&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'static</span>, S: <span class="lifetime">'a</span>&gt;(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        ctx: StoreContext&lt;<span class="lifetime">'a</span>, S&gt;,
-    ) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>T&gt;&gt; {
-        Python::with_gil(|py| {
-            <span class="kw">let </span><span class="prelude-val">Ok</span>(object): <span class="prelude-ty">Result</span>&lt;Py&lt;PyExternRef&gt;, <span class="kw">_</span>&gt; = <span class="self">self</span>.object.extract(py) <span class="kw">else </span>{
-                <span class="macro">anyhow::bail!</span>(<span class="string">"extern ref is from a different source"</span>);
-            };
-            <span class="kw">let </span>object = object.as_ref(py).try_borrow().map_err(PyErr::from)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>downcast&lt;<span class="lifetime">'a</span>, <span class="lifetime">'s</span>: <span class="lifetime">'a</span>, T: <span class="lifetime">'static</span>, S: <span class="lifetime">'s</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+        _ctx: StoreContext&lt;<span class="lifetime">'s</span>, S&gt;,
+    ) -&gt; anyhow::Result&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>T&gt; {
+        <span class="comment">// Check if we have a host-accessible non-opaque reference to the data
+        </span><span class="kw">let </span><span class="prelude-val">Some</span>(object) = <span class="self">self</span>.host.as_ref() <span class="kw">else </span>{
+            <span class="macro">anyhow::bail!</span>(<span class="string">"extern ref is from a different source"</span>);
+        };
 
-            <span class="kw">let </span>object: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>AnyExternRef = ctx.get_externref(object.object)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="prelude-val">Some</span>(object) = object.downcast_ref() <span class="kw">else </span>{
+            <span class="macro">anyhow::bail!</span>(<span class="string">"incorrect extern ref type"</span>);
+        };
 
-            <span class="kw">let </span><span class="prelude-val">Some</span>(object) = object.downcast_ref() <span class="kw">else </span>{
-                <span class="macro">anyhow::bail!</span>(<span class="string">"incorrect extern ref type"</span>);
-            };
-
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(object))
-        })
+        <span class="prelude-val">Ok</span>(object)
     }
 }
 
 <span class="kw">impl </span>ToPy <span class="kw">for </span>ExternRef {
     <span class="kw">fn </span>to_py(<span class="kw-2">&amp;</span><span class="self">self</span>, py: Python) -&gt; Py&lt;PyAny&gt; {
-        <span class="self">self</span>.object.clone_ref(py)
+        <span class="self">self</span>.guest.clone_ref(py)
     }
 }
 
 <span class="kw">impl </span>ExternRef {
     <span class="doccomment">/// Creates a new extern ref from a Python value
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_exported_externref(object: Py&lt;PyAny&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{ object }
+        Python::with_gil(|py| {
+            <span class="comment">// Check if this ExternRef comes from this source,
+            //  if not, return an opaque ExternRef
+            </span><span class="kw">let </span><span class="prelude-val">Ok</span>(host): <span class="prelude-ty">Result</span>&lt;Py&lt;PyExternRef&gt;, <span class="kw">_</span>&gt; = object.extract(py) <span class="kw">else </span>{
+                <span class="kw">return </span><span class="self">Self </span>{
+                    host: <span class="prelude-val">None</span>,
+                    guest: object,
+                };
+            };
+
+            <span class="kw">let </span>host = Arc::clone(<span class="kw-2">&amp;</span>host.as_ref(py).get().object);
+
+            <span class="self">Self </span>{
+                host: <span class="prelude-val">Some</span>(host),
+                guest: object,
+            }
+        })
     }
 }
 
-<span class="kw">pub type </span>AnyExternRef = <span class="kw">dyn </span><span class="lifetime">'static </span>+ Any + Send + Sync;
+<span class="kw">type </span>AnyExternRef = <span class="kw">dyn </span><span class="lifetime">'static </span>+ Any + Send + Sync;
 
 <span class="attr">#[pyclass(frozen)]
 </span><span class="kw">struct </span>PyExternRef {
-    <span class="doccomment">/// Reference to the extern ref data which is stored in the store
-    ///
-    /// If the ExternRef API is changed to decouple the downcast lifetime
-    /// from the store, this could just store the object itself.
-    </span>object: Id&lt;Box&lt;AnyExternRef&gt;&gt;,
+    <span class="doccomment">/// The inner extern ref data
+    </span>object: Arc&lt;AnyExternRef&gt;,
 }
 </code></pre></div></section></main></body></html>

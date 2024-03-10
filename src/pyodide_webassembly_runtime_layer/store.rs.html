@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e935ef01ae1c1829.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.78.0-nightly (2dceda4f3 2024-03-01)" data-channel="nightly" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-12cf3b4f4f9dc36d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/store.rs`."><title>store.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e935ef01ae1c1829.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.78.0-nightly (2d24fe591 2024-03-09)" data-channel="nightly" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-12cf3b4f4f9dc36d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../pyodide_webassembly_runtime_layer/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -315,43 +315,18 @@
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
-<a href="#320" id="320">320</a>
-<a href="#321" id="321">321</a>
-<a href="#322" id="322">322</a>
-<a href="#323" id="323">323</a>
-<a href="#324" id="324">324</a>
-<a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a>
-<a href="#327" id="327">327</a>
-<a href="#328" id="328">328</a>
-<a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a>
-<a href="#331" id="331">331</a>
-<a href="#332" id="332">332</a>
-<a href="#333" id="333">333</a>
-<a href="#334" id="334">334</a>
-<a href="#335" id="335">335</a>
-<a href="#336" id="336">336</a>
-<a href="#337" id="337">337</a>
-<a href="#338" id="338">338</a>
-<a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt,
     marker::PhantomData,
     sync::{Arc, Weak},
 };
 
-<span class="kw">use </span>id_arena::{Arena, Id};
 <span class="kw">use </span>wasm_runtime_layer::backend::{
     AsContext, AsContextMut, WasmStore, WasmStoreContext, WasmStoreContextMut,
 };
 <span class="kw">use </span>wobbly::sync::Wobbly;
 
-<span class="kw">use crate</span>::{externref::AnyExternRef, func::PyHostFuncFn, Engine};
+<span class="kw">use crate</span>::{func::PyHostFuncFn, Engine};
 
 <span class="doccomment">/// A store for the [`Engine`], which stores host-defined data `T` and internal
 /// state.
@@ -408,8 +383,6 @@
     <span class="doccomment">/// The user host functions, which must live in Rust and not JS to avoid a
     /// cross-language reference cycle
     </span>host_funcs: Vec&lt;Wobbly&lt;PyHostFuncFn&gt;&gt;,
-    <span class="doccomment">/// The extern refs, which must live for the lifetime of the store
-    </span>externrefs: Arena&lt;Box&lt;AnyExternRef&gt;&gt;,
 }
 
 <span class="kw">impl</span>&lt;T&gt; WasmStore&lt;T, Engine&gt; <span class="kw">for </span>Store&lt;T&gt; {
@@ -422,7 +395,6 @@
                 engine: engine.clone(),
                 data,
                 host_funcs: Vec::new(),
-                externrefs: Arena::new(),
             })))),
             _marker: PhantomData::&lt;T&gt;,
         }
@@ -543,19 +515,6 @@
     </span>proof: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Arc&lt;StoreProof&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a</span>&gt; StoreContext&lt;<span class="lifetime">'a</span>, T&gt; {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_externref(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        id: Id&lt;Box&lt;AnyExternRef&gt;&gt;,
-    ) -&gt; anyhow::Result&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>AnyExternRef&gt; {
-        <span class="kw">let </span><span class="prelude-val">Some</span>(object) = <span class="self">self</span>.store.externrefs.get(id) <span class="kw">else </span>{
-            <span class="macro">anyhow::bail!</span>(<span class="string">"extern ref is from a different store"</span>);
-        };
-
-        <span class="prelude-val">Ok</span>(object)
-    }
-}
-
 <span class="attr">#[allow(clippy::module_name_repetitions)]
 </span><span class="doccomment">/// Mutable context to the store
 </span><span class="kw">pub struct </span>StoreContextMut&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a</span>&gt; {
@@ -595,13 +554,6 @@
         <span class="kw">let </span>func = Wobbly::new(func);
         <span class="self">self</span>.store.host_funcs.push(func.clone());
         func
-    }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>register_externref(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        object: Box&lt;AnyExternRef&gt;,
-    ) -&gt; Id&lt;Box&lt;AnyExternRef&gt;&gt; {
-        <span class="self">self</span>.store.externrefs.alloc(object)
     }
 }
 
