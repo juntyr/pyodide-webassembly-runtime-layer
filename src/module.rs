@@ -8,7 +8,7 @@ use wasm_runtime_layer::{
     TableType, ValueType,
 };
 
-use crate::{conversion::uint8_array, Engine};
+use crate::{conversion::js_uint8_array, Engine};
 
 #[derive(Clone, Debug)]
 /// A WASM module.
@@ -37,7 +37,7 @@ impl WasmModule<Engine> for Module {
             let parsed = ParsedModule::parse(&bytes)?;
 
             let buffer =
-                uint8_array(py).call_method1(py, intern!(py, "new"), (bytes.as_slice(),))?;
+                js_uint8_array(py).call_method1(py, intern!(py, "new"), (bytes.as_slice(),))?;
 
             let module = web_assembly_module(py).call_method1(py, intern!(py, "new"), (buffer,))?;
 
