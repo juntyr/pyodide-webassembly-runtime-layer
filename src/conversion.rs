@@ -21,7 +21,8 @@ impl ToPy for Value<Engine> {
 
         match self {
             Self::I32(v) => v.to_object(py),
-            Self::I64(v) => v.to_object(py),
+            // WebAssembly explicitly requires all i64's to be a BigInt
+            Self::I64(v) => i64_to_bigint(py, *v),
             Self::F32(v) => v.to_object(py),
             Self::F64(v) => v.to_object(py),
             Self::FuncRef(None) | Self::ExternRef(None) => py.None(),
@@ -113,6 +114,24 @@ impl ValueTypeExt for ValueType {
             Self::ExternRef => "externref",
         }
     }
+}
+
+#[must_use]
+fn i64_to_bigint(py: Python, x: i64) -> Py<PyAny> {
+    fn bigint(py: Python) -> &Py<PyAny> {
+        static BIG_INT: OnceLock<Py<PyAny>> = OnceLock::new();
+        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+        BIG_INT.get_or_init(|| {
+            py.import(intern!(py, "js"))
+                .unwrap()
+                .getattr(intern!(py, "BigInt"))
+                .unwrap()
+                .into_py(py)
+        })
+    }
+
+    // Conversion from i64 to BigInt cannot fail
+    bigint(py).call1(py, (x,)).unwrap()
 }
 
 pub fn uint8_array(py: Python) -> &'static Py<PyAny> {
