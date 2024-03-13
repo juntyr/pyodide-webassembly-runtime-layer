@@ -363,7 +363,7 @@
     TableType, ValueType,
 };
 
-<span class="kw">use crate</span>::{conversion::uint8_array, Engine};
+<span class="kw">use crate</span>::{conversion::js_uint8_array, Engine};
 
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="doccomment">/// A WASM module.
@@ -392,7 +392,7 @@
             <span class="kw">let </span>parsed = ParsedModule::parse(<span class="kw-2">&amp;</span>bytes)<span class="question-mark">?</span>;
 
             <span class="kw">let </span>buffer =
-                uint8_array(py).call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"new"</span>), (bytes.as_slice(),))<span class="question-mark">?</span>;
+                js_uint8_array(py).call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"new"</span>), (bytes.as_slice(),))<span class="question-mark">?</span>;
 
             <span class="kw">let </span>module = web_assembly_module(py).call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"new"</span>), (buffer,))<span class="question-mark">?</span>;
 

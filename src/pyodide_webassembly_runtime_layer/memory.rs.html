@@ -183,7 +183,7 @@
 };
 
 <span class="kw">use crate</span>::{
-    conversion::{create_js_object, instanceof, uint8_array, ToPy},
+    conversion::{create_js_object, instanceof, js_uint8_array, ToPy},
     Engine,
 };
 
@@ -266,7 +266,7 @@
             </span><span class="macro">tracing::debug!</span>(memory = %<span class="self">self</span>.memory.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, offset, len = buffer.len(), <span class="string">"Memory::read"</span>);
 
             <span class="kw">let </span>memory = <span class="self">self</span>.memory.getattr(py, <span class="macro">intern!</span>(py, <span class="string">"buffer"</span>))<span class="question-mark">?</span>;
-            <span class="kw">let </span>memory = uint8_array(py).call_method1(
+            <span class="kw">let </span>memory = js_uint8_array(py).call_method1(
                 py,
                 <span class="macro">intern!</span>(py, <span class="string">"new"</span>),
                 (memory, offset, buffer.len()),
@@ -292,7 +292,7 @@
             </span><span class="macro">tracing::debug!</span>(memory = %<span class="self">self</span>.memory.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, offset, len = buffer.len(), <span class="string">"Memory::write"</span>);
 
             <span class="kw">let </span>memory = <span class="self">self</span>.memory.getattr(py, <span class="macro">intern!</span>(py, <span class="string">"buffer"</span>))<span class="question-mark">?</span>;
-            <span class="kw">let </span>memory = uint8_array(py).call_method1(
+            <span class="kw">let </span>memory = js_uint8_array(py).call_method1(
                 py,
                 <span class="macro">intern!</span>(py, <span class="string">"new"</span>),
                 (memory, offset, buffer.len()),

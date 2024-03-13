@@ -213,6 +213,27 @@
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::OnceLock;
 
 <span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>, types::IntoPyDict};
@@ -237,7 +258,8 @@
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::I32(v) =&gt; v.to_object(py),
             <span class="comment">// WebAssembly explicitly requires all i64's to be a BigInt
-            </span><span class="self">Self</span>::I64(v) =&gt; i64_to_bigint(py, <span class="kw-2">*</span>v),
+            // Pyodide auto-converts BigInts, so we wrap it in an Object
+            </span><span class="self">Self</span>::I64(v) =&gt; i64_to_js_bigint(py, <span class="kw-2">*</span>v),
             <span class="self">Self</span>::F32(v) =&gt; v.to_object(py),
             <span class="self">Self</span>::F64(v) =&gt; v.to_object(py),
             <span class="self">Self</span>::FuncRef(<span class="prelude-val">None</span>) | <span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>) =&gt; py.<span class="prelude-val">None</span>(),
@@ -285,7 +307,8 @@
     <span class="kw">fn </span>from_py_typed(py: Python, value: Py&lt;PyAny&gt;, ty: ValueType) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="kw">match </span>ty {
             ValueType::I32 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I32(value.extract(py)<span class="question-mark">?</span>)),
-            ValueType::I64 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I64(value.extract(py)<span class="question-mark">?</span>)),
+            <span class="comment">// Try to unwrap a number, BigInt, or Object-wrapped BigInt
+            </span>ValueType::I64 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I64(try_i64_from_js_bigint(py, value)<span class="question-mark">?</span>)),
             ValueType::F32 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::F32(value.extract(py)<span class="question-mark">?</span>)),
             ValueType::F64 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::F64(value.extract(py)<span class="question-mark">?</span>)),
             ValueType::ExternRef =&gt; {
@@ -332,27 +355,46 @@
 }
 
 <span class="attr">#[must_use]
-</span><span class="kw">fn </span>i64_to_bigint(py: Python, x: i64) -&gt; Py&lt;PyAny&gt; {
-    <span class="kw">fn </span>bigint(py: Python) -&gt; <span class="kw-2">&amp;</span>Py&lt;PyAny&gt; {
-        <span class="kw">static </span>BIG_INT: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
+</span><span class="kw">fn </span>i64_to_js_bigint(py: Python, v: i64) -&gt; Py&lt;PyAny&gt; {
+    <span class="kw">fn </span>js_object(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
+        <span class="kw">static </span>JS_OBJECT: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
         <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        </span>BIG_INT.get_or_init(|| {
+        </span>JS_OBJECT.get_or_init(|| {
             py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
                 .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"BigInt"</span>))
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"Object"</span>))
                 .unwrap()
                 .into_py(py)
         })
     }
 
-    <span class="comment">// Conversion from i64 to BigInt cannot fail
-    </span>bigint(py).call1(py, (x,)).unwrap()
+    <span class="comment">// Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
+    </span>js_object(py)
+        .call1(py, (js_bigint(py).call1(py, (v,)).unwrap(),))
+        .unwrap()
 }
 
-<span class="kw">pub fn </span>uint8_array(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
-    <span class="kw">static </span>UINT8_ARRAY: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
+<span class="kw">fn </span>try_i64_from_js_bigint(py: Python, v: Py&lt;PyAny&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;i64, PyErr&gt; {
+    <span class="comment">// First wrap inside a BigInt to force coersion, then try to convert into an i64
+    </span>js_bigint(py).call1(py, (v,))<span class="question-mark">?</span>.extract(py)
+}
+
+<span class="kw">fn </span>js_bigint(py: Python) -&gt; <span class="kw-2">&amp;</span>Py&lt;PyAny&gt; {
+    <span class="kw">static </span>JS_BIG_INT: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
     <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    </span>UINT8_ARRAY.get_or_init(|| {
+    </span>JS_BIG_INT.get_or_init(|| {
+        py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
+            .unwrap()
+            .getattr(<span class="macro">intern!</span>(py, <span class="string">"BigInt"</span>))
+            .unwrap()
+            .into_py(py)
+    })
+}
+
+<span class="kw">pub fn </span>js_uint8_array(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
+    <span class="kw">static </span>JS_UINT8_ARRAY: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
+    <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+    </span>JS_UINT8_ARRAY.get_or_init(|| {
         py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
             .unwrap()
             .getattr(<span class="macro">intern!</span>(py, <span class="string">"Uint8Array"</span>))
