@@ -120,39 +120,44 @@ impl ValueTypeExt for ValueType {
 
 #[must_use]
 fn i64_to_js_bigint(py: Python, v: i64) -> Py<PyAny> {
-    fn js_object(py: Python) -> &'static Py<PyAny> {
-        static JS_OBJECT: OnceLock<Py<PyAny>> = OnceLock::new();
+    fn object_wrapped_bigint(py: Python) -> &Py<PyAny> {
+        static OBJECT_WRAPPED_BIGINT: OnceLock<Py<PyAny>> = OnceLock::new();
         // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        JS_OBJECT.get_or_init(|| {
-            py.import(intern!(py, "js"))
+        OBJECT_WRAPPED_BIGINT.get_or_init(|| {
+            py.import(intern!(py, "pyodide"))
                 .unwrap()
-                .getattr(intern!(py, "Object"))
+                .getattr(intern!(py, "code"))
+                .unwrap()
+                .getattr(intern!(py, "run_js"))
+                .unwrap()
+                .call1((
+                    "function objectWrappedBigInt(v){ return Object(BigInt(v)); } \
+                     objectWrappedBigInt",
+                ))
                 .unwrap()
                 .into_py(py)
         })
     }
 
     // Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
-    js_object(py)
-        .call1(py, (js_bigint(py).call1(py, (v,)).unwrap(),))
-        .unwrap()
+    object_wrapped_bigint(py).call1(py, (v,)).unwrap()
 }
 
 fn try_i64_from_js_bigint(py: Python, v: Py<PyAny>) -> Result<i64, PyErr> {
+    fn js_bigint(py: Python) -> &Py<PyAny> {
+        static JS_BIG_INT: OnceLock<Py<PyAny>> = OnceLock::new();
+        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+        JS_BIG_INT.get_or_init(|| {
+            py.import(intern!(py, "js"))
+                .unwrap()
+                .getattr(intern!(py, "BigInt"))
+                .unwrap()
+                .into_py(py)
+        })
+    }
+
     // First wrap inside a BigInt to force coersion, then try to convert into an i64
     js_bigint(py).call1(py, (v,))?.extract(py)
-}
-
-fn js_bigint(py: Python) -> &Py<PyAny> {
-    static JS_BIG_INT: OnceLock<Py<PyAny>> = OnceLock::new();
-    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    JS_BIG_INT.get_or_init(|| {
-        py.import(intern!(py, "js"))
-            .unwrap()
-            .getattr(intern!(py, "BigInt"))
-            .unwrap()
-            .into_py(py)
-    })
 }
 
 pub fn js_uint8_array(py: Python) -> &'static Py<PyAny> {
