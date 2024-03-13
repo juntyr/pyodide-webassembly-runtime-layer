@@ -234,6 +234,11 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::OnceLock;
 
 <span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>, types::IntoPyDict};
@@ -356,39 +361,44 @@
 
 <span class="attr">#[must_use]
 </span><span class="kw">fn </span>i64_to_js_bigint(py: Python, v: i64) -&gt; Py&lt;PyAny&gt; {
-    <span class="kw">fn </span>js_object(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
-        <span class="kw">static </span>JS_OBJECT: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
+    <span class="kw">fn </span>object_wrapped_bigint(py: Python) -&gt; <span class="kw-2">&amp;</span>Py&lt;PyAny&gt; {
+        <span class="kw">static </span>OBJECT_WRAPPED_BIGINT: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
         <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        </span>JS_OBJECT.get_or_init(|| {
-            py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
+        </span>OBJECT_WRAPPED_BIGINT.get_or_init(|| {
+            py.import(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))
                 .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"Object"</span>))
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"code"</span>))
+                .unwrap()
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"run_js"</span>))
+                .unwrap()
+                .call1((
+                    <span class="string">"function objectWrappedBigInt(v){ return Object(BigInt(v)); } \
+                     objectWrappedBigInt"</span>,
+                ))
                 .unwrap()
                 .into_py(py)
         })
     }
 
     <span class="comment">// Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
-    </span>js_object(py)
-        .call1(py, (js_bigint(py).call1(py, (v,)).unwrap(),))
-        .unwrap()
+    </span>object_wrapped_bigint(py).call1(py, (v,)).unwrap()
 }
 
 <span class="kw">fn </span>try_i64_from_js_bigint(py: Python, v: Py&lt;PyAny&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;i64, PyErr&gt; {
+    <span class="kw">fn </span>js_bigint(py: Python) -&gt; <span class="kw-2">&amp;</span>Py&lt;PyAny&gt; {
+        <span class="kw">static </span>JS_BIG_INT: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
+        <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+        </span>JS_BIG_INT.get_or_init(|| {
+            py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
+                .unwrap()
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"BigInt"</span>))
+                .unwrap()
+                .into_py(py)
+        })
+    }
+
     <span class="comment">// First wrap inside a BigInt to force coersion, then try to convert into an i64
     </span>js_bigint(py).call1(py, (v,))<span class="question-mark">?</span>.extract(py)
-}
-
-<span class="kw">fn </span>js_bigint(py: Python) -&gt; <span class="kw-2">&amp;</span>Py&lt;PyAny&gt; {
-    <span class="kw">static </span>JS_BIG_INT: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
-    <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    </span>JS_BIG_INT.get_or_init(|| {
-        py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
-            .unwrap()
-            .getattr(<span class="macro">intern!</span>(py, <span class="string">"BigInt"</span>))
-            .unwrap()
-            .into_py(py)
-    })
 }
 
 <span class="kw">pub fn </span>js_uint8_array(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
