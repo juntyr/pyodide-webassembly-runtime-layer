@@ -7,7 +7,7 @@ use wasm_runtime_layer::{
 };
 
 use crate::{
-    conversion::{create_js_object, instanceof, uint8_array, ToPy},
+    conversion::{create_js_object, instanceof, js_uint8_array, ToPy},
     Engine,
 };
 
@@ -90,7 +90,7 @@ impl WasmMemory<Engine> for Memory {
             tracing::debug!(memory = %self.memory.as_ref(py), ?self.ty, offset, len = buffer.len(), "Memory::read");
 
             let memory = self.memory.getattr(py, intern!(py, "buffer"))?;
-            let memory = uint8_array(py).call_method1(
+            let memory = js_uint8_array(py).call_method1(
                 py,
                 intern!(py, "new"),
                 (memory, offset, buffer.len()),
@@ -116,7 +116,7 @@ impl WasmMemory<Engine> for Memory {
             tracing::debug!(memory = %self.memory.as_ref(py), ?self.ty, offset, len = buffer.len(), "Memory::write");
 
             let memory = self.memory.getattr(py, intern!(py, "buffer"))?;
-            let memory = uint8_array(py).call_method1(
+            let memory = js_uint8_array(py).call_method1(
                 py,
                 intern!(py, "new"),
                 (memory, offset, buffer.len()),
