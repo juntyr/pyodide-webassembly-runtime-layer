@@ -46,6 +46,9 @@ impl WasmModule<Engine> for Module {
             let Ok(module) =
                 web_assembly_module(py).call_method1(py, intern!(py, "new"), (buffer,))
             else {
+                println!("{:?}", WasmFeatureExtensions::required(&bytes));
+                println!("{:?}", WasmFeatureExtensions::supported());
+
                 anyhow::bail!(UnsupportedWasmFeatureExtensionError {
                     required: WasmFeatureExtensions::required(&bytes),
                     supported: *WasmFeatureExtensions::supported(),
