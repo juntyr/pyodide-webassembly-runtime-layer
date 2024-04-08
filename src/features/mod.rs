@@ -15,7 +15,7 @@ impl fmt::Display for UnsupportedWasmFeatureExtensionError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         writeln!(
             fmt,
-            "WASM module requires the following feature extensions, which are not supported by \
+            "A WASM module requires the following feature extensions, which are not supported by \
              your browser:"
         )?;
         writeln!(fmt)?;
