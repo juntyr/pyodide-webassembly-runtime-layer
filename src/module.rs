@@ -8,7 +8,11 @@ use wasm_runtime_layer::{
     TableType, ValueType,
 };
 
-use crate::{conversion::js_uint8_array, Engine};
+use crate::{
+    conversion::js_uint8_array,
+    features::{UnsupportedWasmFeatureExtensionError, WasmFeatureExtensions},
+    Engine,
+};
 
 #[derive(Clone, Debug)]
 /// A WASM module.
@@ -39,7 +43,14 @@ impl WasmModule<Engine> for Module {
             let buffer =
                 js_uint8_array(py).call_method1(py, intern!(py, "new"), (bytes.as_slice(),))?;
 
-            let module = web_assembly_module(py).call_method1(py, intern!(py, "new"), (buffer,))?;
+            let Ok(module) =
+                web_assembly_module(py).call_method1(py, intern!(py, "new"), (buffer,))
+            else {
+                anyhow::bail!(UnsupportedWasmFeatureExtensionError {
+                    required: WasmFeatureExtensions::required(&bytes),
+                    supported: *WasmFeatureExtensions::supported(),
+                });
+            };
 
             let parsed = Arc::new(parsed);
 

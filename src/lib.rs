@@ -78,6 +78,7 @@ use wasm_runtime_layer::backend::WasmEngine;
 
 mod conversion;
 mod externref;
+mod features;
 mod func;
 mod global;
 mod instance;
