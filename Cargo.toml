@@ -20,7 +20,7 @@ WebAssembly runtime, exposed through Pyodide.
 anyhow = { version = "1.0", default-features = false, features = ["std"] }
 flagset = { version = "0.4.5", default-features = false, features = ["std"] }
 fxhash = { version = "0.2", default-features = false }
-pyo3 = { version = "0.20", default-features = false, features = ["anyhow", "macros"] }
+pyo3 = { version = "0.21", default-features = false, features = ["anyhow", "macros"] }
 tracing = { version = "0.1", default-features = false, optional = true }
 wasmparser = { version = "0.206", default-features = false, features = ["std"] }
 wasm_runtime_layer = { version = "0.3", default-features = false }

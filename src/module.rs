@@ -41,10 +41,9 @@ impl WasmModule<Engine> for Module {
             let parsed = ParsedModule::parse(&bytes)?;
 
             let buffer =
-                js_uint8_array(py).call_method1(py, intern!(py, "new"), (bytes.as_slice(),))?;
+                js_uint8_array(py).call_method1(intern!(py, "new"), (bytes.as_slice(),))?;
 
-            let Ok(module) =
-                web_assembly_module(py).call_method1(py, intern!(py, "new"), (buffer,))
+            let Ok(module) = web_assembly_module(py).call_method1(intern!(py, "new"), (buffer,))
             else {
                 anyhow::bail!(UnsupportedWasmFeatureExtensionError {
                     required: WasmFeatureExtension::required(&bytes),
@@ -54,7 +53,10 @@ impl WasmModule<Engine> for Module {
 
             let parsed = Arc::new(parsed);
 
-            Ok(Self { module, parsed })
+            Ok(Self {
+                module: module.unbind(),
+                parsed,
+            })
         })
     }
 
@@ -349,16 +351,18 @@ impl GlobalTypeFrom for GlobalType {
     }
 }
 
-fn web_assembly_module(py: Python) -> &'static Py<PyAny> {
+fn web_assembly_module(py: Python) -> &Bound<PyAny> {
     static WEB_ASSEMBLY_MODULE: OnceLock<Py<PyAny>> = OnceLock::new();
     // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    WEB_ASSEMBLY_MODULE.get_or_init(|| {
-        py.import(intern!(py, "js"))
-            .unwrap()
-            .getattr(intern!(py, "WebAssembly"))
-            .unwrap()
-            .getattr(intern!(py, "Module"))
-            .unwrap()
-            .into_py(py)
-    })
+    WEB_ASSEMBLY_MODULE
+        .get_or_init(|| {
+            py.import_bound(intern!(py, "js"))
+                .unwrap()
+                .getattr(intern!(py, "WebAssembly"))
+                .unwrap()
+                .getattr(intern!(py, "Module"))
+                .unwrap()
+                .into_py(py)
+        })
+        .bind(py)
 }

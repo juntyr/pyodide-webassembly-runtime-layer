@@ -166,16 +166,14 @@ impl WasmFeatureExtension {
     }
 
     fn try_validate_wasm_bytes(py: Python, bytes: &[u8]) -> anyhow::Result<bool> {
-        let buffer = js_uint8_array(py).call_method1(py, intern!(py, "new"), (bytes,))?;
-        let valid = web_assembly_validate(py)
-            .call1(py, (buffer,))?
-            .extract(py)?;
+        let buffer = js_uint8_array(py).call_method1(intern!(py, "new"), (bytes,))?;
+        let valid = web_assembly_validate(py).call1((buffer,))?.extract()?;
         Ok(valid)
     }
 
     fn try_create_wasm_module_from_bytes(py: Python, bytes: &[u8]) -> anyhow::Result<bool> {
-        let buffer = js_uint8_array(py).call_method1(py, intern!(py, "new"), (bytes,))?;
-        let module = web_assembly_module(py).call_method1(py, intern!(py, "new"), (buffer,));
+        let buffer = js_uint8_array(py).call_method1(intern!(py, "new"), (bytes,))?;
+        let module = web_assembly_module(py).call_method1(intern!(py, "new"), (buffer,));
         Ok(module.is_ok())
     }
 }
@@ -206,30 +204,34 @@ impl fmt::Display for WasmFeatureExtension {
     }
 }
 
-fn web_assembly_validate(py: Python) -> &'static Py<PyAny> {
+fn web_assembly_validate(py: Python) -> &Bound<PyAny> {
     static WEB_ASSEMBLY_VALIDATE: OnceLock<Py<PyAny>> = OnceLock::new();
     // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    WEB_ASSEMBLY_VALIDATE.get_or_init(|| {
-        py.import(intern!(py, "js"))
-            .unwrap()
-            .getattr(intern!(py, "WebAssembly"))
-            .unwrap()
-            .getattr(intern!(py, "validate"))
-            .unwrap()
-            .into_py(py)
-    })
+    WEB_ASSEMBLY_VALIDATE
+        .get_or_init(|| {
+            py.import_bound(intern!(py, "js"))
+                .unwrap()
+                .getattr(intern!(py, "WebAssembly"))
+                .unwrap()
+                .getattr(intern!(py, "validate"))
+                .unwrap()
+                .into_py(py)
+        })
+        .bind(py)
 }
 
-fn web_assembly_module(py: Python) -> &'static Py<PyAny> {
+fn web_assembly_module(py: Python) -> &Bound<PyAny> {
     static WEB_ASSEMBLY_MODULE: OnceLock<Py<PyAny>> = OnceLock::new();
     // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    WEB_ASSEMBLY_MODULE.get_or_init(|| {
-        py.import(intern!(py, "js"))
-            .unwrap()
-            .getattr(intern!(py, "WebAssembly"))
-            .unwrap()
-            .getattr(intern!(py, "Module"))
-            .unwrap()
-            .into_py(py)
-    })
+    WEB_ASSEMBLY_MODULE
+        .get_or_init(|| {
+            py.import_bound(intern!(py, "js"))
+                .unwrap()
+                .getattr(intern!(py, "WebAssembly"))
+                .unwrap()
+                .getattr(intern!(py, "Module"))
+                .unwrap()
+                .into_py(py)
+        })
+        .bind(py)
 }

@@ -37,17 +37,14 @@ impl WasmInstance<Engine> for Instance {
 
             let imports_object = create_imports_object(py, imports)?;
 
-            let instance = web_assembly_instance(py).call_method1(
-                py,
-                intern!(py, "new"),
-                (module.module(py), imports_object),
-            )?;
+            let instance = web_assembly_instance(py)
+                .call_method1(intern!(py, "new"), (module.module(py), imports_object))?;
 
-            let exports = instance.getattr(py, intern!(py, "exports"))?;
-            let exports = process_exports(py, &exports, module)?;
+            let exports = instance.getattr(intern!(py, "exports"))?;
+            let exports = process_exports(&exports, module)?;
 
             Ok(Self {
-                _instance: instance,
+                _instance: instance.unbind(),
                 exports,
             })
         })
@@ -72,7 +69,10 @@ impl WasmInstance<Engine> for Instance {
 }
 
 /// Creates the js import map
-fn create_imports_object(py: Python, imports: &Imports<Engine>) -> Result<Py<PyAny>, PyErr> {
+fn create_imports_object<'py>(
+    py: Python<'py>,
+    imports: &Imports<Engine>,
+) -> Result<Bound<'py, PyAny>, PyErr> {
     #[cfg(feature = "tracing")]
     let _span = tracing::debug_span!("process_imports").entered();
 
@@ -103,9 +103,9 @@ fn create_imports_object(py: Python, imports: &Imports<Engine>) -> Result<Py<PyA
             |acc, (module, imports)| -> Result<_, PyErr> {
                 let obj = create_js_object(py)?;
                 for (name, import) in imports {
-                    obj.setattr(py, name, import)?;
+                    obj.setattr(name, import)?;
                 }
-                acc.setattr(py, module, obj)?;
+                acc.setattr(module, obj)?;
                 Ok(acc)
             },
         )?;
@@ -115,8 +115,7 @@ fn create_imports_object(py: Python, imports: &Imports<Engine>) -> Result<Py<PyA
 
 /// Processes a wasm module's exports into a hashmap
 fn process_exports(
-    py: Python,
-    exports: &Py<PyAny>,
+    exports: &Bound<PyAny>,
     module: &Module,
 ) -> anyhow::Result<FxHashMap<String, Extern<Engine>>> {
     #[cfg(feature = "tracing")]
@@ -127,25 +126,19 @@ fn process_exports(
         .map(|ExportType { name, ty }| {
             let export = match ty {
                 ExternType::Func(signature) => Extern::Func(Func::from_exported_function(
-                    py,
-                    exports.getattr(py, name)?,
+                    exports.getattr(name)?,
                     signature,
                 )?),
                 ExternType::Global(signature) => Extern::Global(Global::from_exported_global(
-                    py,
-                    exports.getattr(py, name)?,
+                    exports.getattr(name)?,
                     signature,
                 )?),
-                ExternType::Memory(ty) => Extern::Memory(Memory::from_exported_memory(
-                    py,
-                    exports.getattr(py, name)?,
-                    ty,
-                )?),
-                ExternType::Table(ty) => Extern::Table(Table::from_exported_table(
-                    py,
-                    exports.getattr(py, name)?,
-                    ty,
-                )?),
+                ExternType::Memory(ty) => {
+                    Extern::Memory(Memory::from_exported_memory(exports.getattr(name)?, ty)?)
+                },
+                ExternType::Table(ty) => {
+                    Extern::Table(Table::from_exported_table(exports.getattr(name)?, ty)?)
+                },
             };
 
             Ok((String::from(name), export))
@@ -153,16 +146,18 @@ fn process_exports(
         .collect()
 }
 
-fn web_assembly_instance(py: Python) -> &'static Py<PyAny> {
+fn web_assembly_instance(py: Python) -> &Bound<PyAny> {
     static WEB_ASSEMBLY_INSTANCE: OnceLock<Py<PyAny>> = OnceLock::new();
     // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    WEB_ASSEMBLY_INSTANCE.get_or_init(|| {
-        py.import(intern!(py, "js"))
-            .unwrap()
-            .getattr(intern!(py, "WebAssembly"))
-            .unwrap()
-            .getattr(intern!(py, "Instance"))
-            .unwrap()
-            .into_py(py)
-    })
+    WEB_ASSEMBLY_INSTANCE
+        .get_or_init(|| {
+            py.import_bound(intern!(py, "js"))
+                .unwrap()
+                .getattr(intern!(py, "WebAssembly"))
+                .unwrap()
+                .getattr(intern!(py, "Instance"))
+                .unwrap()
+                .into_py(py)
+        })
+        .bind(py)
 }

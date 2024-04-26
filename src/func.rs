@@ -51,59 +51,59 @@ impl WasmFunc<Engine> for Func {
             let user_state = non_static_type_id(store.data());
             let ty_clone = ty.clone();
 
-            let func = Arc::new(
-                move |py: Python, args: Py<PyTuple>| -> Result<Py<PyAny>, PyErr> {
-                    let Some(mut strong_store) = Weak::upgrade(&weak_store) else {
-                        return Err(PyErr::from(anyhow::anyhow!(
-                            "host func called after free of its associated store"
-                        )));
-                    };
+            let func = Arc::new(move |args: Bound<PyTuple>| -> Result<Py<PyAny>, PyErr> {
+                let py = args.py();
 
-                    // Safety:
-                    //
-                    // - The proof is constructed from a mutable store context
-                    // - Calling a host function (from the host or from WASM) provides that call
-                    //   with a mutable reborrow of the store context
-                    let store = unsafe { StoreContextMut::from_proof_unchecked(&mut strong_store) };
+                let Some(mut strong_store) = Weak::upgrade(&weak_store) else {
+                    return Err(PyErr::from(anyhow::anyhow!(
+                        "host func called after free of its associated store"
+                    )));
+                };
 
-                    let ty = &ty_clone;
+                // Safety:
+                //
+                // - The proof is constructed from a mutable store context
+                // - Calling a host function (from the host or from WASM) provides that call
+                //   with a mutable reborrow of the store context
+                let store = unsafe { StoreContextMut::from_proof_unchecked(&mut strong_store) };
 
-                    let args = ty
-                        .params()
-                        .iter()
-                        .zip(args.as_ref(py).iter())
-                        .map(|(ty, arg)| Value::from_py_typed(py, arg.into_py(py), *ty))
-                        .collect::<Result<Vec<_>, _>>()?;
-                    let mut results = vec![Value::I32(0); ty.results().len()];
+                let ty = &ty_clone;
 
-                    #[cfg(feature = "tracing")]
-                    let _span = tracing::debug_span!("call_host", ?args, ?ty).entered();
+                let args = ty
+                    .params()
+                    .iter()
+                    .zip(args.iter())
+                    .map(|(ty, arg)| Value::from_py_typed(arg, *ty))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let mut results = vec![Value::I32(0); ty.results().len()];
 
-                    match func(store, &args, &mut results) {
-                        Ok(()) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::debug!(?results, "result");
-                        },
-                        Err(err) => {
-                            #[cfg(feature = "tracing")]
-                            tracing::error!("{err:?}");
-                            return Err(err.into());
-                        },
-                    }
+                #[cfg(feature = "tracing")]
+                let _span = tracing::debug_span!("call_host", ?args, ?ty).entered();
 
-                    let results = match results.as_slice() {
-                        [] => py.None(),
-                        [res] => res.to_py(py),
-                        results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))
-                            .as_ref()
-                            .into_py(py),
-                    };
+                match func(store, &args, &mut results) {
+                    Ok(()) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::debug!(?results, "result");
+                    },
+                    Err(err) => {
+                        #[cfg(feature = "tracing")]
+                        tracing::error!("{err:?}");
+                        return Err(err.into());
+                    },
+                }
 
-                    Ok(results)
-                },
-            );
+                let results = match results.as_slice() {
+                    [] => py.None(),
+                    [res] => res.to_py(py),
+                    results => PyTuple::new_bound(py, results.iter().map(|res| res.to_py(py)))
+                        .into_any()
+                        .unbind(),
+                };
 
-            let func = Py::new(
+                Ok(results)
+            });
+
+            let func = Bound::new(
                 py,
                 PyHostFunc {
                     func: store.register_host_func(func),
@@ -111,10 +111,10 @@ impl WasmFunc<Engine> for Func {
                     ty: ty.clone(),
                 },
             )?;
-            let func = py_to_js_proxy(py, func)?;
+            let func = py_to_js_proxy(func)?;
 
             Ok(Self {
-                func,
+                func: func.unbind(),
                 ty,
                 user_state: Some(user_state),
             })
@@ -147,18 +147,19 @@ impl WasmFunc<Engine> for Func {
             assert_eq!(self.ty.results().len(), results.len());
 
             let args = args.iter().map(|arg| arg.to_py(py));
-            let args = PyTuple::new(py, args);
+            let args = PyTuple::new_bound(py, args);
 
-            let res = self.func.call1(py, args)?;
+            let res = self.func.bind(py).call1(args)?;
 
             #[cfg(feature = "tracing")]
             tracing::debug!(%res, ?self.ty);
 
             match (self.ty.results(), results) {
                 ([], []) => (),
-                ([ty], [result]) => *result = Value::from_py_typed(py, res, *ty)?,
+                ([ty], [result]) => *result = Value::from_py_typed(res, *ty)?,
                 (tys, results) => {
-                    let res: &PyTuple = PyTuple::type_object(py).call1((res,))?.extract()?;
+                    let res: Bound<PyTuple> =
+                        PyTuple::type_object_bound(py).call1((res,))?.extract()?;
 
                     // https://webassembly.github.io/spec/js-api/#exported-function-exotic-objects
                     assert_eq!(tys.len(), res.len());
@@ -170,7 +171,7 @@ impl WasmFunc<Engine> for Func {
                         .zip(results.iter_mut())
                         .zip(res.iter())
                     {
-                        *result = Value::from_py_typed(py, value.into_py(py), *ty)?;
+                        *result = Value::from_py_typed(value, *ty)?;
                     }
                 },
             }
@@ -188,12 +189,8 @@ impl ToPy for Func {
 
 impl Func {
     /// Creates a new function from a Python value
-    pub(crate) fn from_exported_function(
-        py: Python,
-        func: Py<PyAny>,
-        ty: FuncType,
-    ) -> anyhow::Result<Self> {
-        if !func.as_ref(py).is_callable() {
+    pub(crate) fn from_exported_function(func: Bound<PyAny>, ty: FuncType) -> anyhow::Result<Self> {
+        if !func.is_callable() {
             anyhow::bail!("expected WebAssembly.Function but found {func:?} which is not callable");
         }
 
@@ -201,15 +198,14 @@ impl Func {
         tracing::debug!(%func, ?ty, "Func::from_exported_function");
 
         Ok(Self {
-            func,
+            func: func.unbind(),
             ty,
             user_state: None,
         })
     }
 }
 
-pub type PyHostFuncFn =
-    dyn 'static + Send + Sync + Fn(Python, Py<PyTuple>) -> Result<Py<PyAny>, PyErr>;
+pub type PyHostFuncFn = dyn 'static + Send + Sync + Fn(Bound<PyTuple>) -> Result<Py<PyAny>, PyErr>;
 
 #[pyclass(frozen)]
 struct PyHostFunc {
@@ -221,10 +217,9 @@ struct PyHostFunc {
 #[pymethods]
 impl PyHostFunc {
     #[pyo3(signature = (*args))]
-    fn __call__(&self, py: Python, args: Py<PyTuple>) -> Result<Py<PyAny>, PyErr> {
+    fn __call__(&self, args: Bound<PyTuple>) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
-        let _span =
-            tracing::debug_span!("call_trampoline", ?self.ty, args = %args.as_ref(py)).entered();
+        let _span = tracing::debug_span!("call_trampoline", ?self.ty, args = %args).entered();
 
         let Some(func) = self.func.upgrade() else {
             return Err(PyErr::from(anyhow::anyhow!(
@@ -232,7 +227,7 @@ impl PyHostFunc {
             )));
         };
 
-        func(py, args)
+        func(args)
     }
 }
 

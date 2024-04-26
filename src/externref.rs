@@ -23,17 +23,17 @@ impl WasmExternRef<Engine> for ExternRef {
         Python::with_gil(|py| -> Result<Self, PyErr> {
             let object: Arc<AnyExternRef> = Arc::new(object);
 
-            let guest = Py::new(
+            let guest = Bound::new(
                 py,
                 PyExternRef {
                     object: Arc::clone(&object),
                 },
             )?;
-            let guest = py_to_js_proxy(py, guest)?;
+            let guest = py_to_js_proxy(guest)?;
 
             Ok(Self {
                 host: Some(object),
-                guest,
+                guest: guest.unbind(),
             })
         })
         .unwrap()
@@ -64,24 +64,22 @@ impl ToPy for ExternRef {
 
 impl ExternRef {
     /// Creates a new extern ref from a Python value
-    pub(crate) fn from_exported_externref(object: Py<PyAny>) -> Self {
-        Python::with_gil(|py| {
-            // Check if this ExternRef comes from this source,
-            //  if not, return an opaque ExternRef
-            let Ok(host): Result<Py<PyExternRef>, _> = object.extract(py) else {
-                return Self {
-                    host: None,
-                    guest: object,
-                };
+    pub(crate) fn from_exported_externref(object: Bound<PyAny>) -> Self {
+        // Check if this ExternRef comes from this source,
+        //  if not, return an opaque ExternRef
+        let Ok(host): Result<Bound<PyExternRef>, _> = object.extract() else {
+            return Self {
+                host: None,
+                guest: object.unbind(),
             };
+        };
 
-            let host = Arc::clone(&host.as_ref(py).get().object);
+        let host = Arc::clone(&host.get().object);
 
-            Self {
-                host: Some(host),
-                guest: object,
-            }
-        })
+        Self {
+            host: Some(host),
+            guest: object.unbind(),
+        }
     }
 }
 

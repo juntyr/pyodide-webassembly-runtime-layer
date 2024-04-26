@@ -31,14 +31,17 @@ impl WasmMemory<Engine> for Memory {
             tracing::debug!(?ty, "Memory::new");
 
             let desc = create_js_object(py)?;
-            desc.setattr(py, intern!(py, "initial"), ty.initial_pages())?;
+            desc.setattr(intern!(py, "initial"), ty.initial_pages())?;
             if let Some(maximum) = ty.maximum_pages() {
-                desc.setattr(py, intern!(py, "maximum"), maximum)?;
+                desc.setattr(intern!(py, "maximum"), maximum)?;
             }
 
-            let memory = web_assembly_memory(py).call_method1(py, intern!(py, "new"), (desc,))?;
+            let memory = web_assembly_memory(py).call_method1(intern!(py, "new"), (desc,))?;
 
-            Ok(Self { memory, ty })
+            Ok(Self {
+                memory: memory.unbind(),
+                ty,
+            })
         })
     }
 
@@ -48,13 +51,14 @@ impl WasmMemory<Engine> for Memory {
 
     fn grow(&self, _ctx: impl AsContextMut<Engine>, additional: u32) -> anyhow::Result<u32> {
         Python::with_gil(|py| {
-            #[cfg(feature = "tracing")]
-            tracing::debug!(memory = %self.memory.as_ref(py), ?self.ty, additional, "Memory::grow");
+            let memory = self.memory.bind(py);
 
-            let old_pages = self
-                .memory
-                .call_method1(py, intern!(py, "grow"), (additional,))?
-                .extract(py)?;
+            #[cfg(feature = "tracing")]
+            tracing::debug!(memory = %memory, ?self.ty, additional, "Memory::grow");
+
+            let old_pages = memory
+                .call_method1(intern!(py, "grow"), (additional,))?
+                .extract()?;
 
             Ok(old_pages)
         })
@@ -64,14 +68,15 @@ impl WasmMemory<Engine> for Memory {
         const PAGE_SIZE: u64 = 1 << 16;
 
         Python::with_gil(|py| -> Result<u32, PyErr> {
-            #[cfg(feature = "tracing")]
-            tracing::debug!(memory = %self.memory.as_ref(py), ?self.ty, "Memory::current_pages");
+            let memory = self.memory.bind(py);
 
-            let byte_len: u64 = self
-                .memory
-                .getattr(py, intern!(py, "buffer"))?
-                .getattr(py, intern!(py, "byteLength"))?
-                .extract(py)?;
+            #[cfg(feature = "tracing")]
+            tracing::debug!(memory = %memory, ?self.ty, "Memory::current_pages");
+
+            let byte_len: u64 = memory
+                .getattr(intern!(py, "buffer"))?
+                .getattr(intern!(py, "byteLength"))?
+                .extract()?;
 
             let pages = u32::try_from(byte_len / PAGE_SIZE)?;
             Ok(pages)
@@ -86,20 +91,17 @@ impl WasmMemory<Engine> for Memory {
         buffer: &mut [u8],
     ) -> anyhow::Result<()> {
         Python::with_gil(|py| {
+            let memory = self.memory.bind(py);
+
             #[cfg(feature = "tracing")]
-            tracing::debug!(memory = %self.memory.as_ref(py), ?self.ty, offset, len = buffer.len(), "Memory::read");
+            tracing::debug!(memory = %memory, ?self.ty, offset, len = buffer.len(), "Memory::read");
 
-            let memory = self.memory.getattr(py, intern!(py, "buffer"))?;
-            let memory = js_uint8_array(py).call_method1(
-                py,
-                intern!(py, "new"),
-                (memory, offset, buffer.len()),
-            )?;
+            let memory = memory.getattr(intern!(py, "buffer"))?;
+            let memory = js_uint8_array(py)
+                .call_method1(intern!(py, "new"), (memory, offset, buffer.len()))?;
 
-            let bytes: Py<PyBytes> = memory
-                .call_method0(py, intern!(py, "to_bytes"))?
-                .extract(py)?;
-            buffer.copy_from_slice(bytes.as_ref(py).as_bytes());
+            let bytes: Bound<PyBytes> = memory.call_method0(intern!(py, "to_bytes"))?.extract()?;
+            buffer.copy_from_slice(bytes.as_bytes());
 
             Ok(())
         })
@@ -112,17 +114,16 @@ impl WasmMemory<Engine> for Memory {
         buffer: &[u8],
     ) -> anyhow::Result<()> {
         Python::with_gil(|py| {
+            let memory = self.memory.bind(py);
+
             #[cfg(feature = "tracing")]
-            tracing::debug!(memory = %self.memory.as_ref(py), ?self.ty, offset, len = buffer.len(), "Memory::write");
+            tracing::debug!(memory = %memory, ?self.ty, offset, len = buffer.len(), "Memory::write");
 
-            let memory = self.memory.getattr(py, intern!(py, "buffer"))?;
-            let memory = js_uint8_array(py).call_method1(
-                py,
-                intern!(py, "new"),
-                (memory, offset, buffer.len()),
-            )?;
+            let memory = memory.getattr(intern!(py, "buffer"))?;
+            let memory = js_uint8_array(py)
+                .call_method1(intern!(py, "new"), (memory, offset, buffer.len()))?;
 
-            memory.call_method1(py, intern!(py, "assign"), (buffer,))?;
+            memory.call_method1(intern!(py, "assign"), (buffer,))?;
 
             Ok(())
         })
@@ -132,7 +133,7 @@ impl WasmMemory<Engine> for Memory {
 impl ToPy for Memory {
     fn to_py(&self, py: Python) -> Py<PyAny> {
         #[cfg(feature = "tracing")]
-        tracing::trace!(value = %self.memory.as_ref(py), ?self.ty, "Memory::to_py");
+        tracing::trace!(value = %self.memory.bind(py), ?self.ty, "Memory::to_py");
 
         self.memory.clone_ref(py)
     }
@@ -141,34 +142,35 @@ impl ToPy for Memory {
 impl Memory {
     /// Construct a memory from an exported memory object
     pub(crate) fn from_exported_memory(
-        py: Python,
-        memory: Py<PyAny>,
+        memory: Bound<PyAny>,
         ty: MemoryType,
     ) -> anyhow::Result<Self> {
-        if !instanceof(py, &memory, web_assembly_memory(py))? {
-            anyhow::bail!(
-                "expected WebAssembly.Memory but found {}",
-                memory.as_ref(py)
-            );
+        if !instanceof(&memory, web_assembly_memory(memory.py()))? {
+            anyhow::bail!("expected WebAssembly.Memory but found {memory}");
         }
 
         #[cfg(feature = "tracing")]
-        tracing::debug!(memory = %memory.as_ref(py), ?ty, "Memory::from_exported_memory");
+        tracing::debug!(memory = %memory, ?ty, "Memory::from_exported_memory");
 
-        Ok(Self { memory, ty })
+        Ok(Self {
+            memory: memory.unbind(),
+            ty,
+        })
     }
 }
 
-fn web_assembly_memory(py: Python) -> &'static Py<PyAny> {
+fn web_assembly_memory(py: Python) -> &Bound<PyAny> {
     static WEB_ASSEMBLY_MEMORY: OnceLock<Py<PyAny>> = OnceLock::new();
     // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    WEB_ASSEMBLY_MEMORY.get_or_init(|| {
-        py.import(intern!(py, "js"))
-            .unwrap()
-            .getattr(intern!(py, "WebAssembly"))
-            .unwrap()
-            .getattr(intern!(py, "Memory"))
-            .unwrap()
-            .into_py(py)
-    })
+    WEB_ASSEMBLY_MEMORY
+        .get_or_init(|| {
+            py.import_bound(intern!(py, "js"))
+                .unwrap()
+                .getattr(intern!(py, "WebAssembly"))
+                .unwrap()
+                .getattr(intern!(py, "Memory"))
+                .unwrap()
+                .into_py(py)
+        })
+        .bind(py)
 }

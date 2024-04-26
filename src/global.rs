@@ -34,18 +34,19 @@ impl WasmGlobal<Engine> for Global {
 
             let desc = create_js_object(py)?;
             desc.setattr(
-                py,
                 intern!(py, "value"),
                 ValueExt::ty(&value).as_js_descriptor(),
             )?;
-            desc.setattr(py, intern!(py, "mutable"), mutable)?;
+            desc.setattr(intern!(py, "mutable"), mutable)?;
 
             let value = value.to_py(py);
 
-            let global =
-                web_assembly_global(py).call_method1(py, intern!(py, "new"), (desc, value))?;
+            let global = web_assembly_global(py).call_method1(intern!(py, "new"), (desc, value))?;
 
-            Ok(Self { global, ty })
+            Ok(Self {
+                global: global.unbind(),
+                ty,
+            })
         })
         .unwrap()
     }
@@ -60,12 +61,14 @@ impl WasmGlobal<Engine> for Global {
         }
 
         Python::with_gil(|py| {
+            let global = self.global.bind(py);
+
             #[cfg(feature = "tracing")]
-            tracing::debug!(global = %self.global.as_ref(py), ?self.ty, ?new_value, "Global::set");
+            tracing::debug!(global = %global, ?self.ty, ?new_value, "Global::set");
 
             let new_value = new_value.to_py(py);
 
-            self.global.setattr(py, intern!(py, "value"), new_value)?;
+            global.setattr(intern!(py, "value"), new_value)?;
 
             Ok(())
         })
@@ -73,12 +76,14 @@ impl WasmGlobal<Engine> for Global {
 
     fn get(&self, _ctx: impl AsContextMut<Engine>) -> Value<Engine> {
         Python::with_gil(|py| {
+            let global = self.global.bind(py);
+
             #[cfg(feature = "tracing")]
-            tracing::debug!(global = %self.global.as_ref(py), ?self.ty, "Global::get");
+            tracing::debug!(global = %global, ?self.ty, "Global::get");
 
-            let value = self.global.getattr(py, intern!(py, "value"))?;
+            let value = global.getattr(intern!(py, "value"))?;
 
-            Value::from_py_typed(py, value, self.ty.content())
+            Value::from_py_typed(value, self.ty.content())
         })
         .unwrap()
     }
@@ -96,34 +101,35 @@ impl ToPy for Global {
 impl Global {
     /// Creates a new global from a Python value
     pub(crate) fn from_exported_global(
-        py: Python,
-        global: Py<PyAny>,
+        global: Bound<PyAny>,
         ty: GlobalType,
     ) -> anyhow::Result<Self> {
-        if !instanceof(py, &global, web_assembly_global(py))? {
-            anyhow::bail!(
-                "expected WebAssembly.Global but found {}",
-                global.as_ref(py)
-            );
+        if !instanceof(&global, web_assembly_global(global.py()))? {
+            anyhow::bail!("expected WebAssembly.Global but found {global}",);
         }
 
         #[cfg(feature = "tracing")]
-        tracing::debug!(global = %global.as_ref(py), ?ty, "Global::from_exported_global");
+        tracing::debug!(global = %global, ?ty, "Global::from_exported_global");
 
-        Ok(Self { global, ty })
+        Ok(Self {
+            global: global.unbind(),
+            ty,
+        })
     }
 }
 
-fn web_assembly_global(py: Python) -> &'static Py<PyAny> {
+fn web_assembly_global(py: Python) -> &Bound<PyAny> {
     static WEB_ASSEMBLY_GLOBAL: OnceLock<Py<PyAny>> = OnceLock::new();
     // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    WEB_ASSEMBLY_GLOBAL.get_or_init(|| {
-        py.import(intern!(py, "js"))
-            .unwrap()
-            .getattr(intern!(py, "WebAssembly"))
-            .unwrap()
-            .getattr(intern!(py, "Global"))
-            .unwrap()
-            .into_py(py)
-    })
+    WEB_ASSEMBLY_GLOBAL
+        .get_or_init(|| {
+            py.import_bound(intern!(py, "js"))
+                .unwrap()
+                .getattr(intern!(py, "WebAssembly"))
+                .unwrap()
+                .getattr(intern!(py, "Global"))
+                .unwrap()
+                .into_py(py)
+        })
+        .bind(py)
 }
