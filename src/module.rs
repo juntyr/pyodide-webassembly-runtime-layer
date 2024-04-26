@@ -10,7 +10,7 @@ use wasm_runtime_layer::{
 
 use crate::{
     conversion::js_uint8_array,
-    features::{UnsupportedWasmFeatureExtensionError, WasmFeatureExtensions},
+    features::{UnsupportedWasmFeatureExtensionError, WasmFeatureExtension},
     Engine,
 };
 
@@ -47,8 +47,8 @@ impl WasmModule<Engine> for Module {
                 web_assembly_module(py).call_method1(py, intern!(py, "new"), (buffer,))
             else {
                 anyhow::bail!(UnsupportedWasmFeatureExtensionError {
-                    required: WasmFeatureExtensions::required(&bytes),
-                    supported: *WasmFeatureExtensions::supported(),
+                    required: WasmFeatureExtension::required(&bytes),
+                    supported: *WasmFeatureExtension::supported(),
                 });
             };
 
