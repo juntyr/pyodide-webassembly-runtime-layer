@@ -127,6 +127,12 @@
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::OnceLock;
 
 <span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>};
@@ -163,18 +169,19 @@
 
             <span class="kw">let </span>desc = create_js_object(py)<span class="question-mark">?</span>;
             desc.setattr(
-                py,
                 <span class="macro">intern!</span>(py, <span class="string">"value"</span>),
                 ValueExt::ty(<span class="kw-2">&amp;</span>value).as_js_descriptor(),
             )<span class="question-mark">?</span>;
-            desc.setattr(py, <span class="macro">intern!</span>(py, <span class="string">"mutable"</span>), mutable)<span class="question-mark">?</span>;
+            desc.setattr(<span class="macro">intern!</span>(py, <span class="string">"mutable"</span>), mutable)<span class="question-mark">?</span>;
 
             <span class="kw">let </span>value = value.to_py(py);
 
-            <span class="kw">let </span>global =
-                web_assembly_global(py).call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"new"</span>), (desc, value))<span class="question-mark">?</span>;
+            <span class="kw">let </span>global = web_assembly_global(py).call_method1(<span class="macro">intern!</span>(py, <span class="string">"new"</span>), (desc, value))<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ global, ty })
+            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                global: global.unbind(),
+                ty,
+            })
         })
         .unwrap()
     }
@@ -189,12 +196,14 @@
         }
 
         Python::with_gil(|py| {
+            <span class="kw">let </span>global = <span class="self">self</span>.global.bind(py);
+
             <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-            </span><span class="macro">tracing::debug!</span>(global = %<span class="self">self</span>.global.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, <span class="question-mark">?</span>new_value, <span class="string">"Global::set"</span>);
+            </span><span class="macro">tracing::debug!</span>(global = %global, <span class="question-mark">?</span><span class="self">self</span>.ty, <span class="question-mark">?</span>new_value, <span class="string">"Global::set"</span>);
 
             <span class="kw">let </span>new_value = new_value.to_py(py);
 
-            <span class="self">self</span>.global.setattr(py, <span class="macro">intern!</span>(py, <span class="string">"value"</span>), new_value)<span class="question-mark">?</span>;
+            global.setattr(<span class="macro">intern!</span>(py, <span class="string">"value"</span>), new_value)<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(())
         })
@@ -202,12 +211,14 @@
 
     <span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, _ctx: <span class="kw">impl </span>AsContextMut&lt;Engine&gt;) -&gt; Value&lt;Engine&gt; {
         Python::with_gil(|py| {
+            <span class="kw">let </span>global = <span class="self">self</span>.global.bind(py);
+
             <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-            </span><span class="macro">tracing::debug!</span>(global = %<span class="self">self</span>.global.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, <span class="string">"Global::get"</span>);
+            </span><span class="macro">tracing::debug!</span>(global = %global, <span class="question-mark">?</span><span class="self">self</span>.ty, <span class="string">"Global::get"</span>);
 
-            <span class="kw">let </span>value = <span class="self">self</span>.global.getattr(py, <span class="macro">intern!</span>(py, <span class="string">"value"</span>))<span class="question-mark">?</span>;
+            <span class="kw">let </span>value = global.getattr(<span class="macro">intern!</span>(py, <span class="string">"value"</span>))<span class="question-mark">?</span>;
 
-            Value::from_py_typed(py, value, <span class="self">self</span>.ty.content())
+            Value::from_py_typed(value, <span class="self">self</span>.ty.content())
         })
         .unwrap()
     }
@@ -225,35 +236,36 @@
 <span class="kw">impl </span>Global {
     <span class="doccomment">/// Creates a new global from a Python value
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_exported_global(
-        py: Python,
-        global: Py&lt;PyAny&gt;,
+        global: Bound&lt;PyAny&gt;,
         ty: GlobalType,
     ) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">if </span>!instanceof(py, <span class="kw-2">&amp;</span>global, web_assembly_global(py))<span class="question-mark">? </span>{
-            <span class="macro">anyhow::bail!</span>(
-                <span class="string">"expected WebAssembly.Global but found {}"</span>,
-                global.as_ref(py)
-            );
+        <span class="kw">if </span>!instanceof(<span class="kw-2">&amp;</span>global, web_assembly_global(global.py()))<span class="question-mark">? </span>{
+            <span class="macro">anyhow::bail!</span>(<span class="string">"expected WebAssembly.Global but found {global}"</span>,);
         }
 
         <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-        </span><span class="macro">tracing::debug!</span>(global = %global.as_ref(py), <span class="question-mark">?</span>ty, <span class="string">"Global::from_exported_global"</span>);
+        </span><span class="macro">tracing::debug!</span>(global = %global, <span class="question-mark">?</span>ty, <span class="string">"Global::from_exported_global"</span>);
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ global, ty })
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            global: global.unbind(),
+            ty,
+        })
     }
 }
 
-<span class="kw">fn </span>web_assembly_global(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
+<span class="kw">fn </span>web_assembly_global(py: Python) -&gt; <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt; {
     <span class="kw">static </span>WEB_ASSEMBLY_GLOBAL: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
     <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    </span>WEB_ASSEMBLY_GLOBAL.get_or_init(|| {
-        py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
-            .unwrap()
-            .getattr(<span class="macro">intern!</span>(py, <span class="string">"WebAssembly"</span>))
-            .unwrap()
-            .getattr(<span class="macro">intern!</span>(py, <span class="string">"Global"</span>))
-            .unwrap()
-            .into_py(py)
-    })
+    </span>WEB_ASSEMBLY_GLOBAL
+        .get_or_init(|| {
+            py.import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
+                .unwrap()
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"WebAssembly"</span>))
+                .unwrap()
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"Global"</span>))
+                .unwrap()
+                .into_py(py)
+        })
+        .bind(py)
 }
 </code></pre></div></section></main></body></html>

@@ -254,11 +254,6 @@
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
 <a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     any::TypeId,
     marker::PhantomData,
@@ -312,59 +307,59 @@
             <span class="kw">let </span>user_state = non_static_type_id(store.data());
             <span class="kw">let </span>ty_clone = ty.clone();
 
-            <span class="kw">let </span>func = Arc::new(
-                <span class="kw">move </span>|py: Python, args: Py&lt;PyTuple&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;Py&lt;PyAny&gt;, PyErr&gt; {
-                    <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>strong_store) = Weak::upgrade(<span class="kw-2">&amp;</span>weak_store) <span class="kw">else </span>{
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(PyErr::from(<span class="macro">anyhow::anyhow!</span>(
-                            <span class="string">"host func called after free of its associated store"
-                        </span>)));
-                    };
+            <span class="kw">let </span>func = Arc::new(<span class="kw">move </span>|args: Bound&lt;PyTuple&gt;| -&gt; <span class="prelude-ty">Result</span>&lt;Py&lt;PyAny&gt;, PyErr&gt; {
+                <span class="kw">let </span>py = args.py();
 
-                    <span class="comment">// Safety:
-                    //
-                    // - The proof is constructed from a mutable store context
-                    // - Calling a host function (from the host or from WASM) provides that call
-                    //   with a mutable reborrow of the store context
-                    </span><span class="kw">let </span>store = <span class="kw">unsafe </span>{ StoreContextMut::from_proof_unchecked(<span class="kw-2">&amp;mut </span>strong_store) };
+                <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>strong_store) = Weak::upgrade(<span class="kw-2">&amp;</span>weak_store) <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(PyErr::from(<span class="macro">anyhow::anyhow!</span>(
+                        <span class="string">"host func called after free of its associated store"
+                    </span>)));
+                };
 
-                    <span class="kw">let </span>ty = <span class="kw-2">&amp;</span>ty_clone;
+                <span class="comment">// Safety:
+                //
+                // - The proof is constructed from a mutable store context
+                // - Calling a host function (from the host or from WASM) provides that call
+                //   with a mutable reborrow of the store context
+                </span><span class="kw">let </span>store = <span class="kw">unsafe </span>{ StoreContextMut::from_proof_unchecked(<span class="kw-2">&amp;mut </span>strong_store) };
 
-                    <span class="kw">let </span>args = ty
-                        .params()
-                        .iter()
-                        .zip(args.as_ref(py).iter())
-                        .map(|(ty, arg)| Value::from_py_typed(py, arg.into_py(py), <span class="kw-2">*</span>ty))
-                        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
-                    <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[Value::I32(<span class="number">0</span>); ty.results().len()];
+                <span class="kw">let </span>ty = <span class="kw-2">&amp;</span>ty_clone;
 
-                    <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-                    </span><span class="kw">let </span>_span = <span class="macro">tracing::debug_span!</span>(<span class="string">"call_host"</span>, <span class="question-mark">?</span>args, <span class="question-mark">?</span>ty).entered();
+                <span class="kw">let </span>args = ty
+                    .params()
+                    .iter()
+                    .zip(args.iter())
+                    .map(|(ty, arg)| Value::from_py_typed(arg, <span class="kw-2">*</span>ty))
+                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>results = <span class="macro">vec!</span>[Value::I32(<span class="number">0</span>); ty.results().len()];
 
-                    <span class="kw">match </span>func(store, <span class="kw-2">&amp;</span>args, <span class="kw-2">&amp;mut </span>results) {
-                        <span class="prelude-val">Ok</span>(()) =&gt; {
-                            <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-                            </span><span class="macro">tracing::debug!</span>(<span class="question-mark">?</span>results, <span class="string">"result"</span>);
-                        },
-                        <span class="prelude-val">Err</span>(err) =&gt; {
-                            <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-                            </span><span class="macro">tracing::error!</span>(<span class="string">"{err:?}"</span>);
-                            <span class="kw">return </span><span class="prelude-val">Err</span>(err.into());
-                        },
-                    }
+                <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
+                </span><span class="kw">let </span>_span = <span class="macro">tracing::debug_span!</span>(<span class="string">"call_host"</span>, <span class="question-mark">?</span>args, <span class="question-mark">?</span>ty).entered();
 
-                    <span class="kw">let </span>results = <span class="kw">match </span>results.as_slice() {
-                        [] =&gt; py.<span class="prelude-val">None</span>(),
-                        [res] =&gt; res.to_py(py),
-                        results =&gt; PyTuple::new(py, results.iter().map(|res| res.to_py(py)))
-                            .as_ref()
-                            .into_py(py),
-                    };
+                <span class="kw">match </span>func(store, <span class="kw-2">&amp;</span>args, <span class="kw-2">&amp;mut </span>results) {
+                    <span class="prelude-val">Ok</span>(()) =&gt; {
+                        <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
+                        </span><span class="macro">tracing::debug!</span>(<span class="question-mark">?</span>results, <span class="string">"result"</span>);
+                    },
+                    <span class="prelude-val">Err</span>(err) =&gt; {
+                        <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
+                        </span><span class="macro">tracing::error!</span>(<span class="string">"{err:?}"</span>);
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(err.into());
+                    },
+                }
 
-                    <span class="prelude-val">Ok</span>(results)
-                },
-            );
+                <span class="kw">let </span>results = <span class="kw">match </span>results.as_slice() {
+                    [] =&gt; py.<span class="prelude-val">None</span>(),
+                    [res] =&gt; res.to_py(py),
+                    results =&gt; PyTuple::new_bound(py, results.iter().map(|res| res.to_py(py)))
+                        .into_any()
+                        .unbind(),
+                };
 
-            <span class="kw">let </span>func = Py::new(
+                <span class="prelude-val">Ok</span>(results)
+            });
+
+            <span class="kw">let </span>func = Bound::new(
                 py,
                 PyHostFunc {
                     func: store.register_host_func(func),
@@ -372,10 +367,10 @@
                     </span>ty: ty.clone(),
                 },
             )<span class="question-mark">?</span>;
-            <span class="kw">let </span>func = py_to_js_proxy(py, func)<span class="question-mark">?</span>;
+            <span class="kw">let </span>func = py_to_js_proxy(func)<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-                func,
+                func: func.unbind(),
                 ty,
                 user_state: <span class="prelude-val">Some</span>(user_state),
             })
@@ -408,18 +403,19 @@
             <span class="macro">assert_eq!</span>(<span class="self">self</span>.ty.results().len(), results.len());
 
             <span class="kw">let </span>args = args.iter().map(|arg| arg.to_py(py));
-            <span class="kw">let </span>args = PyTuple::new(py, args);
+            <span class="kw">let </span>args = PyTuple::new_bound(py, args);
 
-            <span class="kw">let </span>res = <span class="self">self</span>.func.call1(py, args)<span class="question-mark">?</span>;
+            <span class="kw">let </span>res = <span class="self">self</span>.func.bind(py).call1(args)<span class="question-mark">?</span>;
 
             <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
             </span><span class="macro">tracing::debug!</span>(%res, <span class="question-mark">?</span><span class="self">self</span>.ty);
 
             <span class="kw">match </span>(<span class="self">self</span>.ty.results(), results) {
                 ([], []) =&gt; (),
-                ([ty], [result]) =&gt; <span class="kw-2">*</span>result = Value::from_py_typed(py, res, <span class="kw-2">*</span>ty)<span class="question-mark">?</span>,
+                ([ty], [result]) =&gt; <span class="kw-2">*</span>result = Value::from_py_typed(res, <span class="kw-2">*</span>ty)<span class="question-mark">?</span>,
                 (tys, results) =&gt; {
-                    <span class="kw">let </span>res: <span class="kw-2">&amp;</span>PyTuple = PyTuple::type_object(py).call1((res,))<span class="question-mark">?</span>.extract()<span class="question-mark">?</span>;
+                    <span class="kw">let </span>res: Bound&lt;PyTuple&gt; =
+                        PyTuple::type_object_bound(py).call1((res,))<span class="question-mark">?</span>.extract()<span class="question-mark">?</span>;
 
                     <span class="comment">// https://webassembly.github.io/spec/js-api/#exported-function-exotic-objects
                     </span><span class="macro">assert_eq!</span>(tys.len(), res.len());
@@ -431,7 +427,7 @@
                         .zip(results.iter_mut())
                         .zip(res.iter())
                     {
-                        <span class="kw-2">*</span>result = Value::from_py_typed(py, value.into_py(py), <span class="kw-2">*</span>ty)<span class="question-mark">?</span>;
+                        <span class="kw-2">*</span>result = Value::from_py_typed(value, <span class="kw-2">*</span>ty)<span class="question-mark">?</span>;
                     }
                 },
             }
@@ -449,12 +445,8 @@
 
 <span class="kw">impl </span>Func {
     <span class="doccomment">/// Creates a new function from a Python value
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_exported_function(
-        py: Python,
-        func: Py&lt;PyAny&gt;,
-        ty: FuncType,
-    ) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">if </span>!func.as_ref(py).is_callable() {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_exported_function(func: Bound&lt;PyAny&gt;, ty: FuncType) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">if </span>!func.is_callable() {
             <span class="macro">anyhow::bail!</span>(<span class="string">"expected WebAssembly.Function but found {func:?} which is not callable"</span>);
         }
 
@@ -462,15 +454,14 @@
         </span><span class="macro">tracing::debug!</span>(%func, <span class="question-mark">?</span>ty, <span class="string">"Func::from_exported_function"</span>);
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-            func,
+            func: func.unbind(),
             ty,
             user_state: <span class="prelude-val">None</span>,
         })
     }
 }
 
-<span class="kw">pub type </span>PyHostFuncFn =
-    <span class="kw">dyn </span><span class="lifetime">'static </span>+ Send + Sync + Fn(Python, Py&lt;PyTuple&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Py&lt;PyAny&gt;, PyErr&gt;;
+<span class="kw">pub type </span>PyHostFuncFn = <span class="kw">dyn </span><span class="lifetime">'static </span>+ Send + Sync + Fn(Bound&lt;PyTuple&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Py&lt;PyAny&gt;, PyErr&gt;;
 
 <span class="attr">#[pyclass(frozen)]
 </span><span class="kw">struct </span>PyHostFunc {
@@ -482,10 +473,9 @@
 <span class="attr">#[pymethods]
 </span><span class="kw">impl </span>PyHostFunc {
     <span class="attr">#[pyo3(signature = (<span class="kw-2">*</span>args))]
-    </span><span class="kw">fn </span>__call__(<span class="kw-2">&amp;</span><span class="self">self</span>, py: Python, args: Py&lt;PyTuple&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Py&lt;PyAny&gt;, PyErr&gt; {
+    </span><span class="kw">fn </span>__call__(<span class="kw-2">&amp;</span><span class="self">self</span>, args: Bound&lt;PyTuple&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Py&lt;PyAny&gt;, PyErr&gt; {
         <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-        </span><span class="kw">let </span>_span =
-            <span class="macro">tracing::debug_span!</span>(<span class="string">"call_trampoline"</span>, <span class="question-mark">?</span><span class="self">self</span>.ty, args = %args.as_ref(py)).entered();
+        </span><span class="kw">let </span>_span = <span class="macro">tracing::debug_span!</span>(<span class="string">"call_trampoline"</span>, <span class="question-mark">?</span><span class="self">self</span>.ty, args = %args).entered();
 
         <span class="kw">let </span><span class="prelude-val">Some</span>(func) = <span class="self">self</span>.func.upgrade() <span class="kw">else </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(PyErr::from(<span class="macro">anyhow::anyhow!</span>(
@@ -493,7 +483,7 @@
             </span>)));
         };
 
-        func(py, args)
+        func(args)
     }
 }
 

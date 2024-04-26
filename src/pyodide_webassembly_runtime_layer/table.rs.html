@@ -169,6 +169,12 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::OnceLock;
 
 <span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>};
@@ -206,18 +212,20 @@
             </span><span class="macro">tracing::debug!</span>(<span class="question-mark">?</span>ty, <span class="question-mark">?</span>init, <span class="string">"Table::new"</span>);
 
             <span class="kw">let </span>desc = create_js_object(py)<span class="question-mark">?</span>;
-            desc.setattr(py, <span class="macro">intern!</span>(py, <span class="string">"element"</span>), ty.element().as_js_descriptor())<span class="question-mark">?</span>;
-            desc.setattr(py, <span class="macro">intern!</span>(py, <span class="string">"initial"</span>), ty.minimum())<span class="question-mark">?</span>;
+            desc.setattr(<span class="macro">intern!</span>(py, <span class="string">"element"</span>), ty.element().as_js_descriptor())<span class="question-mark">?</span>;
+            desc.setattr(<span class="macro">intern!</span>(py, <span class="string">"initial"</span>), ty.minimum())<span class="question-mark">?</span>;
             <span class="kw">if let </span><span class="prelude-val">Some</span>(max) = ty.maximum() {
-                desc.setattr(py, <span class="macro">intern!</span>(py, <span class="string">"maximum"</span>), max)<span class="question-mark">?</span>;
+                desc.setattr(<span class="macro">intern!</span>(py, <span class="string">"maximum"</span>), max)<span class="question-mark">?</span>;
             }
 
             <span class="kw">let </span>init = init.to_py(py);
 
-            <span class="kw">let </span>table =
-                web_assembly_table(py).call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"new"</span>), (desc, init))<span class="question-mark">?</span>;
+            <span class="kw">let </span>table = web_assembly_table(py).call_method1(<span class="macro">intern!</span>(py, <span class="string">"new"</span>), (desc, init))<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ table, ty })
+            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                table: table.unbind(),
+                ty,
+            })
         })
     }
 
@@ -229,10 +237,12 @@
     <span class="doccomment">/// Returns the current size of the table.
     </span><span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>, _ctx: <span class="kw">impl </span>AsContext&lt;Engine&gt;) -&gt; u32 {
         Python::with_gil(|py| -&gt; <span class="prelude-ty">Result</span>&lt;u32, PyErr&gt; {
-            <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-            </span><span class="macro">tracing::debug!</span>(table = %<span class="self">self</span>.table.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, <span class="string">"Table::size"</span>);
+            <span class="kw">let </span>table = <span class="self">self</span>.table.bind(py);
 
-            <span class="self">self</span>.table.getattr(py, <span class="macro">intern!</span>(py, <span class="string">"length"</span>))<span class="question-mark">?</span>.extract(py)
+            <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
+            </span><span class="macro">tracing::debug!</span>(table = %table, <span class="question-mark">?</span><span class="self">self</span>.ty, <span class="string">"Table::size"</span>);
+
+            table.getattr(<span class="macro">intern!</span>(py, <span class="string">"length"</span>))<span class="question-mark">?</span>.extract()
         })
         .unwrap()
     }
@@ -245,15 +255,16 @@
         init: Value&lt;Engine&gt;,
     ) -&gt; anyhow::Result&lt;u32&gt; {
         Python::with_gil(|py| {
+            <span class="kw">let </span>table = <span class="self">self</span>.table.bind(py);
+
             <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-            </span><span class="macro">tracing::debug!</span>(table = %<span class="self">self</span>.table.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, delta, <span class="question-mark">?</span>init, <span class="string">"Table::grow"</span>);
+            </span><span class="macro">tracing::debug!</span>(table = %table, <span class="question-mark">?</span><span class="self">self</span>.ty, delta, <span class="question-mark">?</span>init, <span class="string">"Table::grow"</span>);
 
             <span class="kw">let </span>init = init.to_py(py);
 
-            <span class="kw">let </span>old_len = <span class="self">self
-                </span>.table
-                .call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"grow"</span>), (delta, init))<span class="question-mark">?
-                </span>.extract(py)<span class="question-mark">?</span>;
+            <span class="kw">let </span>old_len = table
+                .call_method1(<span class="macro">intern!</span>(py, <span class="string">"grow"</span>), (delta, init))<span class="question-mark">?
+                </span>.extract()<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(old_len)
         })
@@ -262,15 +273,14 @@
     <span class="doccomment">/// Returns the table element value at `index`.
     </span><span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, _ctx: <span class="kw">impl </span>AsContextMut&lt;Engine&gt;, index: u32) -&gt; <span class="prelude-ty">Option</span>&lt;Value&lt;Engine&gt;&gt; {
         Python::with_gil(|py| {
+            <span class="kw">let </span>table = <span class="self">self</span>.table.bind(py);
+
             <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-            </span><span class="macro">tracing::debug!</span>(table = %<span class="self">self</span>.table.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, index, <span class="string">"Table::get"</span>);
+            </span><span class="macro">tracing::debug!</span>(table = %table, <span class="question-mark">?</span><span class="self">self</span>.ty, index, <span class="string">"Table::get"</span>);
 
-            <span class="kw">let </span>value = <span class="self">self
-                </span>.table
-                .call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"get"</span>), (index,))
-                .ok()<span class="question-mark">?</span>;
+            <span class="kw">let </span>value = table.call_method1(<span class="macro">intern!</span>(py, <span class="string">"get"</span>), (index,)).ok()<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Some</span>(Value::from_py_typed(py, value, <span class="self">self</span>.ty.element()).unwrap())
+            <span class="prelude-val">Some</span>(Value::from_py_typed(value, <span class="self">self</span>.ty.element()).unwrap())
         })
     }
 
@@ -282,13 +292,14 @@
         value: Value&lt;Engine&gt;,
     ) -&gt; anyhow::Result&lt;()&gt; {
         Python::with_gil(|py| {
+            <span class="kw">let </span>table = <span class="self">self</span>.table.bind(py);
+
             <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-            </span><span class="macro">tracing::debug!</span>(table = %<span class="self">self</span>.table.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, index, <span class="question-mark">?</span>value, <span class="string">"Table::set"</span>);
+            </span><span class="macro">tracing::debug!</span>(table = %table, <span class="question-mark">?</span><span class="self">self</span>.ty, index, <span class="question-mark">?</span>value, <span class="string">"Table::set"</span>);
 
             <span class="kw">let </span>value = value.to_py(py);
 
-            <span class="self">self</span>.table
-                .call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"set"</span>), (index, value))<span class="question-mark">?</span>;
+            table.call_method1(<span class="macro">intern!</span>(py, <span class="string">"set"</span>), (index, value))<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(())
         })
@@ -306,38 +317,39 @@
 
 <span class="kw">impl </span>Table {
     <span class="doccomment">/// Creates a new table from a Python value
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_exported_table(
-        py: Python,
-        table: Py&lt;PyAny&gt;,
-        ty: TableType,
-    ) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">if </span>!instanceof(py, <span class="kw-2">&amp;</span>table, web_assembly_table(py))<span class="question-mark">? </span>{
-            <span class="macro">anyhow::bail!</span>(<span class="string">"expected WebAssembly.Table but found {}"</span>, table.as_ref(py));
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_exported_table(table: Bound&lt;PyAny&gt;, ty: TableType) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">if </span>!instanceof(<span class="kw-2">&amp;</span>table, web_assembly_table(table.py()))<span class="question-mark">? </span>{
+            <span class="macro">anyhow::bail!</span>(<span class="string">"expected WebAssembly.Table but found {}"</span>, table);
         }
 
         <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-        </span><span class="macro">tracing::debug!</span>(table = %table.as_ref(py), <span class="question-mark">?</span>ty, <span class="string">"Table::from_exported_table"</span>);
+        </span><span class="macro">tracing::debug!</span>(table = %table, <span class="question-mark">?</span>ty, <span class="string">"Table::from_exported_table"</span>);
 
-        <span class="kw">let </span>table_length: u32 = table.getattr(py, <span class="macro">intern!</span>(py, <span class="string">"length"</span>))<span class="question-mark">?</span>.extract(py)<span class="question-mark">?</span>;
+        <span class="kw">let </span>table_length: u32 = table.getattr(<span class="macro">intern!</span>(table.py(), <span class="string">"length"</span>))<span class="question-mark">?</span>.extract()<span class="question-mark">?</span>;
 
         <span class="macro">assert!</span>(table_length &gt;= ty.minimum());
         <span class="macro">assert_eq!</span>(ty.element(), ValueType::FuncRef);
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ table, ty })
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            table: table.unbind(),
+            ty,
+        })
     }
 }
 
-<span class="kw">fn </span>web_assembly_table(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
+<span class="kw">fn </span>web_assembly_table(py: Python) -&gt; <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt; {
     <span class="kw">static </span>WEB_ASSEMBLY_TABLE: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
     <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    </span>WEB_ASSEMBLY_TABLE.get_or_init(|| {
-        py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
-            .unwrap()
-            .getattr(<span class="macro">intern!</span>(py, <span class="string">"WebAssembly"</span>))
-            .unwrap()
-            .getattr(<span class="macro">intern!</span>(py, <span class="string">"Table"</span>))
-            .unwrap()
-            .into_py(py)
-    })
+    </span>WEB_ASSEMBLY_TABLE
+        .get_or_init(|| {
+            py.import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
+                .unwrap()
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"WebAssembly"</span>))
+                .unwrap()
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"Table"</span>))
+                .unwrap()
+                .into_py(py)
+        })
+        .bind(py)
 }
 </code></pre></div></section></main></body></html>

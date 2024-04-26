@@ -237,6 +237,19 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::OnceLock;
 
 <span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>, types::IntoPyDict};
@@ -262,7 +275,7 @@
             <span class="self">Self</span>::I32(v) =&gt; v.to_object(py),
             <span class="comment">// WebAssembly explicitly requires all i64's to be a BigInt
             // Pyodide auto-converts BigInts, so we wrap it in an Object
-            </span><span class="self">Self</span>::I64(v) =&gt; i64_to_js_bigint(py, <span class="kw-2">*</span>v),
+            </span><span class="self">Self</span>::I64(v) =&gt; i64_to_js_bigint(py, <span class="kw-2">*</span>v).unbind(),
             <span class="self">Self</span>::F32(v) =&gt; v.to_object(py),
             <span class="self">Self</span>::F64(v) =&gt; v.to_object(py),
             <span class="self">Self</span>::FuncRef(<span class="prelude-val">None</span>) | <span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>) =&gt; py.<span class="prelude-val">None</span>(),
@@ -291,7 +304,7 @@
     </span><span class="kw">fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ValueType;
 
     <span class="doccomment">/// Convert the [`PyAny`] value into a Value of the supplied type
-    </span><span class="kw">fn </span>from_py_typed(py: Python, value: Py&lt;PyAny&gt;, ty: ValueType) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt;;
+    </span><span class="kw">fn </span>from_py_typed(value: Bound&lt;PyAny&gt;, ty: ValueType) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt;;
 }
 
 <span class="kw">impl </span>ValueExt <span class="kw">for </span>Value&lt;Engine&gt; {
@@ -307,15 +320,15 @@
         }
     }
 
-    <span class="kw">fn </span>from_py_typed(py: Python, value: Py&lt;PyAny&gt;, ty: ValueType) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
+    <span class="kw">fn </span>from_py_typed(value: Bound&lt;PyAny&gt;, ty: ValueType) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="kw">match </span>ty {
-            ValueType::I32 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I32(value.extract(py)<span class="question-mark">?</span>)),
+            ValueType::I32 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I32(value.extract()<span class="question-mark">?</span>)),
             <span class="comment">// Try to unwrap a number, BigInt, or Object-wrapped BigInt
-            </span>ValueType::I64 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I64(try_i64_from_js_bigint(py, value)<span class="question-mark">?</span>)),
-            ValueType::F32 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::F32(value.extract(py)<span class="question-mark">?</span>)),
-            ValueType::F64 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::F64(value.extract(py)<span class="question-mark">?</span>)),
+            </span>ValueType::I64 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I64(try_i64_from_js_bigint(value)<span class="question-mark">?</span>)),
+            ValueType::F32 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::F32(value.extract()<span class="question-mark">?</span>)),
+            ValueType::F64 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::F64(value.extract()<span class="question-mark">?</span>)),
             ValueType::ExternRef =&gt; {
-                <span class="kw">if </span>value.is_none(py) {
+                <span class="kw">if </span>value.is_none() {
                     <span class="prelude-val">Ok</span>(<span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>))
                 } <span class="kw">else </span>{
                     <span class="prelude-val">Ok</span>(<span class="self">Self</span>::ExternRef(<span class="prelude-val">Some</span>(ExternRef::from_exported_externref(
@@ -324,7 +337,7 @@
                 }
             },
             ValueType::FuncRef =&gt; {
-                <span class="kw">if </span>value.is_none(py) {
+                <span class="kw">if </span>value.is_none() {
                     <span class="prelude-val">Ok</span>(<span class="self">Self</span>::FuncRef(<span class="prelude-val">None</span>))
                 } <span class="kw">else </span>{
                     <span class="macro">anyhow::bail!</span>(
@@ -358,122 +371,135 @@
 }
 
 <span class="attr">#[must_use]
-</span><span class="kw">fn </span>i64_to_js_bigint(py: Python, v: i64) -&gt; Py&lt;PyAny&gt; {
-    <span class="kw">fn </span>object_wrapped_bigint(py: Python) -&gt; <span class="kw-2">&amp;</span>Py&lt;PyAny&gt; {
+</span><span class="kw">fn </span>i64_to_js_bigint(py: Python, v: i64) -&gt; Bound&lt;PyAny&gt; {
+    <span class="kw">fn </span>object_wrapped_bigint(py: Python) -&gt; <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt; {
         <span class="kw">static </span>OBJECT_WRAPPED_BIGINT: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
         <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        </span>OBJECT_WRAPPED_BIGINT.get_or_init(|| {
-            py.import(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))
-                .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"code"</span>))
-                .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"run_js"</span>))
-                .unwrap()
-                .call1((
-                    <span class="string">"function objectWrappedBigInt(v){ return Object(BigInt(v)); } \
-                     objectWrappedBigInt"</span>,
-                ))
-                .unwrap()
-                .into_py(py)
-        })
+        </span>OBJECT_WRAPPED_BIGINT
+            .get_or_init(|| {
+                py.import_bound(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))
+                    .unwrap()
+                    .getattr(<span class="macro">intern!</span>(py, <span class="string">"code"</span>))
+                    .unwrap()
+                    .getattr(<span class="macro">intern!</span>(py, <span class="string">"run_js"</span>))
+                    .unwrap()
+                    .call1((
+                        <span class="string">"function objectWrappedBigInt(v){ return Object(BigInt(v)); } \
+                         objectWrappedBigInt"</span>,
+                    ))
+                    .unwrap()
+                    .into_py(py)
+            })
+            .bind(py)
     }
 
     <span class="comment">// Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
-    </span>object_wrapped_bigint(py).call1(py, (v,)).unwrap()
+    </span>object_wrapped_bigint(py).call1((v,)).unwrap()
 }
 
-<span class="kw">fn </span>try_i64_from_js_bigint(py: Python, v: Py&lt;PyAny&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;i64, PyErr&gt; {
-    <span class="kw">fn </span>js_bigint(py: Python) -&gt; <span class="kw-2">&amp;</span>Py&lt;PyAny&gt; {
+<span class="kw">fn </span>try_i64_from_js_bigint(v: Bound&lt;PyAny&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;i64, PyErr&gt; {
+    <span class="kw">fn </span>js_bigint(py: Python) -&gt; <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt; {
         <span class="kw">static </span>JS_BIG_INT: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
         <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        </span>JS_BIG_INT.get_or_init(|| {
-            py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
-                .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"BigInt"</span>))
-                .unwrap()
-                .into_py(py)
-        })
+        </span>JS_BIG_INT
+            .get_or_init(|| {
+                py.import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
+                    .unwrap()
+                    .getattr(<span class="macro">intern!</span>(py, <span class="string">"BigInt"</span>))
+                    .unwrap()
+                    .into_py(py)
+            })
+            .bind(py)
     }
 
     <span class="comment">// First wrap inside a BigInt to force coersion, then try to convert into an i64
-    </span>js_bigint(py).call1(py, (v,))<span class="question-mark">?</span>.extract(py)
+    </span>js_bigint(v.py()).call1((v,))<span class="question-mark">?</span>.extract()
 }
 
-<span class="kw">pub fn </span>js_uint8_array(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
+<span class="kw">pub fn </span>js_uint8_array(py: Python) -&gt; <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt; {
     <span class="kw">static </span>JS_UINT8_ARRAY: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
     <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    </span>JS_UINT8_ARRAY.get_or_init(|| {
-        py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
-            .unwrap()
-            .getattr(<span class="macro">intern!</span>(py, <span class="string">"Uint8Array"</span>))
-            .unwrap()
-            .into_py(py)
-    })
+    </span>JS_UINT8_ARRAY
+        .get_or_init(|| {
+            py.import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
+                .unwrap()
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"Uint8Array"</span>))
+                .unwrap()
+                .into_py(py)
+        })
+        .bind(py)
 }
 
 <span class="doccomment">/// Check if `object` is an instance of the JavaScript class with `constructor`.
-</span><span class="kw">pub fn </span>instanceof(py: Python, object: <span class="kw-2">&amp;</span>Py&lt;PyAny&gt;, constructor: <span class="kw-2">&amp;</span>Py&lt;PyAny&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;bool, PyErr&gt; {
-    <span class="kw">fn </span>is_instance_of(py: Python) -&gt; <span class="kw-2">&amp;</span>Py&lt;PyAny&gt; {
+</span><span class="kw">pub fn </span>instanceof(object: <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt;, constructor: <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;bool, PyErr&gt; {
+    <span class="kw">fn </span>is_instance_of(py: Python) -&gt; <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt; {
         <span class="kw">static </span>IS_INSTANCE_OF: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
         <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        </span>IS_INSTANCE_OF.get_or_init(|| {
-            py.import(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))
-                .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"code"</span>))
-                .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"run_js"</span>))
-                .unwrap()
-                .call1((
-                    <span class="string">"function isInstanceOf(object, constructor){ return (object instanceof \
-                     constructor); } isInstanceOf"</span>,
-                ))
-                .unwrap()
-                .into_py(py)
-        })
+        </span>IS_INSTANCE_OF
+            .get_or_init(|| {
+                py.import_bound(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))
+                    .unwrap()
+                    .getattr(<span class="macro">intern!</span>(py, <span class="string">"code"</span>))
+                    .unwrap()
+                    .getattr(<span class="macro">intern!</span>(py, <span class="string">"run_js"</span>))
+                    .unwrap()
+                    .call1((
+                        <span class="string">"function isInstanceOf(object, constructor){ return (object instanceof \
+                         constructor); } isInstanceOf"</span>,
+                    ))
+                    .unwrap()
+                    .into_py(py)
+            })
+            .bind(py)
     }
 
-    is_instance_of(py)
-        .call1(py, (object, constructor))<span class="question-mark">?
-        </span>.extract(py)
+    is_instance_of(object.py())
+        .call1((object, constructor))<span class="question-mark">?
+        </span>.extract()
 }
 
-<span class="kw">pub fn </span>create_js_object(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;Py&lt;PyAny&gt;, PyErr&gt; {
-    <span class="kw">fn </span>js_object_new(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
+<span class="kw">pub fn </span>create_js_object(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;Bound&lt;PyAny&gt;, PyErr&gt; {
+    <span class="kw">fn </span>js_object_new(py: Python) -&gt; <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt; {
         <span class="kw">static </span>JS_OBJECT_NEW: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
         <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        </span>JS_OBJECT_NEW.get_or_init(|| {
-            py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
-                .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"Object"</span>))
-                .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"new"</span>))
-                .unwrap()
-                .into_py(py)
-        })
+        </span>JS_OBJECT_NEW
+            .get_or_init(|| {
+                py.import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
+                    .unwrap()
+                    .getattr(<span class="macro">intern!</span>(py, <span class="string">"Object"</span>))
+                    .unwrap()
+                    .getattr(<span class="macro">intern!</span>(py, <span class="string">"new"</span>))
+                    .unwrap()
+                    .into_py(py)
+            })
+            .bind(py)
     }
 
-    js_object_new(py).call0(py)
+    js_object_new(py).call0()
 }
 
-<span class="kw">pub fn </span>py_to_js_proxy(py: Python, object: <span class="kw">impl </span>IntoPy&lt;Py&lt;PyAny&gt;&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Py&lt;PyAny&gt;, PyErr&gt; {
-    <span class="kw">fn </span>to_js(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
+<span class="kw">pub fn </span>py_to_js_proxy&lt;T&gt;(object: Bound&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Bound&lt;PyAny&gt;, PyErr&gt; {
+    <span class="kw">fn </span>to_js(py: Python) -&gt; <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt; {
         <span class="kw">static </span>TO_JS: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
         <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        </span>TO_JS.get_or_init(|| {
-            py.import(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))
-                .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"ffi"</span>))
-                .unwrap()
-                .getattr(<span class="macro">intern!</span>(py, <span class="string">"to_js"</span>))
-                .unwrap()
-                .into_py(py)
-        })
+        </span>TO_JS
+            .get_or_init(|| {
+                py.import_bound(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))
+                    .unwrap()
+                    .getattr(<span class="macro">intern!</span>(py, <span class="string">"ffi"</span>))
+                    .unwrap()
+                    .getattr(<span class="macro">intern!</span>(py, <span class="string">"to_js"</span>))
+                    .unwrap()
+                    .into_py(py)
+            })
+            .bind(py)
     }
 
+    <span class="kw">let </span>py = object.py();
+
     to_js(py).call(
-        py,
         (object,),
-        <span class="prelude-val">Some</span>([(<span class="macro">intern!</span>(py, <span class="string">"create_pyproxies"</span>), <span class="bool-val">true</span>)].into_py_dict(py)),
+        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[(<span class="macro">intern!</span>(py, <span class="string">"create_pyproxies"</span>), <span class="bool-val">true</span>)].into_py_dict_bound(py)),
     )
 }
 </code></pre></div></section></main></body></html>

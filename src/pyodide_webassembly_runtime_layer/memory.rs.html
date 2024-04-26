@@ -172,6 +172,8 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::OnceLock;
 
 <span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>, types::PyBytes};
@@ -205,14 +207,17 @@
             </span><span class="macro">tracing::debug!</span>(<span class="question-mark">?</span>ty, <span class="string">"Memory::new"</span>);
 
             <span class="kw">let </span>desc = create_js_object(py)<span class="question-mark">?</span>;
-            desc.setattr(py, <span class="macro">intern!</span>(py, <span class="string">"initial"</span>), ty.initial_pages())<span class="question-mark">?</span>;
+            desc.setattr(<span class="macro">intern!</span>(py, <span class="string">"initial"</span>), ty.initial_pages())<span class="question-mark">?</span>;
             <span class="kw">if let </span><span class="prelude-val">Some</span>(maximum) = ty.maximum_pages() {
-                desc.setattr(py, <span class="macro">intern!</span>(py, <span class="string">"maximum"</span>), maximum)<span class="question-mark">?</span>;
+                desc.setattr(<span class="macro">intern!</span>(py, <span class="string">"maximum"</span>), maximum)<span class="question-mark">?</span>;
             }
 
-            <span class="kw">let </span>memory = web_assembly_memory(py).call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"new"</span>), (desc,))<span class="question-mark">?</span>;
+            <span class="kw">let </span>memory = web_assembly_memory(py).call_method1(<span class="macro">intern!</span>(py, <span class="string">"new"</span>), (desc,))<span class="question-mark">?</span>;
 
-            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ memory, ty })
+            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+                memory: memory.unbind(),
+                ty,
+            })
         })
     }
 
@@ -222,13 +227,14 @@
 
     <span class="kw">fn </span>grow(<span class="kw-2">&amp;</span><span class="self">self</span>, _ctx: <span class="kw">impl </span>AsContextMut&lt;Engine&gt;, additional: u32) -&gt; anyhow::Result&lt;u32&gt; {
         Python::with_gil(|py| {
-            <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-            </span><span class="macro">tracing::debug!</span>(memory = %<span class="self">self</span>.memory.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, additional, <span class="string">"Memory::grow"</span>);
+            <span class="kw">let </span>memory = <span class="self">self</span>.memory.bind(py);
 
-            <span class="kw">let </span>old_pages = <span class="self">self
-                </span>.memory
-                .call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"grow"</span>), (additional,))<span class="question-mark">?
-                </span>.extract(py)<span class="question-mark">?</span>;
+            <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
+            </span><span class="macro">tracing::debug!</span>(memory = %memory, <span class="question-mark">?</span><span class="self">self</span>.ty, additional, <span class="string">"Memory::grow"</span>);
+
+            <span class="kw">let </span>old_pages = memory
+                .call_method1(<span class="macro">intern!</span>(py, <span class="string">"grow"</span>), (additional,))<span class="question-mark">?
+                </span>.extract()<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(old_pages)
         })
@@ -238,14 +244,15 @@
         <span class="kw">const </span>PAGE_SIZE: u64 = <span class="number">1 </span>&lt;&lt; <span class="number">16</span>;
 
         Python::with_gil(|py| -&gt; <span class="prelude-ty">Result</span>&lt;u32, PyErr&gt; {
-            <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-            </span><span class="macro">tracing::debug!</span>(memory = %<span class="self">self</span>.memory.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, <span class="string">"Memory::current_pages"</span>);
+            <span class="kw">let </span>memory = <span class="self">self</span>.memory.bind(py);
 
-            <span class="kw">let </span>byte_len: u64 = <span class="self">self
-                </span>.memory
-                .getattr(py, <span class="macro">intern!</span>(py, <span class="string">"buffer"</span>))<span class="question-mark">?
-                </span>.getattr(py, <span class="macro">intern!</span>(py, <span class="string">"byteLength"</span>))<span class="question-mark">?
-                </span>.extract(py)<span class="question-mark">?</span>;
+            <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
+            </span><span class="macro">tracing::debug!</span>(memory = %memory, <span class="question-mark">?</span><span class="self">self</span>.ty, <span class="string">"Memory::current_pages"</span>);
+
+            <span class="kw">let </span>byte_len: u64 = memory
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"buffer"</span>))<span class="question-mark">?
+                </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"byteLength"</span>))<span class="question-mark">?
+                </span>.extract()<span class="question-mark">?</span>;
 
             <span class="kw">let </span>pages = u32::try_from(byte_len / PAGE_SIZE)<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(pages)
@@ -260,20 +267,17 @@
         buffer: <span class="kw-2">&amp;mut </span>[u8],
     ) -&gt; anyhow::Result&lt;()&gt; {
         Python::with_gil(|py| {
+            <span class="kw">let </span>memory = <span class="self">self</span>.memory.bind(py);
+
             <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-            </span><span class="macro">tracing::debug!</span>(memory = %<span class="self">self</span>.memory.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, offset, len = buffer.len(), <span class="string">"Memory::read"</span>);
+            </span><span class="macro">tracing::debug!</span>(memory = %memory, <span class="question-mark">?</span><span class="self">self</span>.ty, offset, len = buffer.len(), <span class="string">"Memory::read"</span>);
 
-            <span class="kw">let </span>memory = <span class="self">self</span>.memory.getattr(py, <span class="macro">intern!</span>(py, <span class="string">"buffer"</span>))<span class="question-mark">?</span>;
-            <span class="kw">let </span>memory = js_uint8_array(py).call_method1(
-                py,
-                <span class="macro">intern!</span>(py, <span class="string">"new"</span>),
-                (memory, offset, buffer.len()),
-            )<span class="question-mark">?</span>;
+            <span class="kw">let </span>memory = memory.getattr(<span class="macro">intern!</span>(py, <span class="string">"buffer"</span>))<span class="question-mark">?</span>;
+            <span class="kw">let </span>memory = js_uint8_array(py)
+                .call_method1(<span class="macro">intern!</span>(py, <span class="string">"new"</span>), (memory, offset, buffer.len()))<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>bytes: Py&lt;PyBytes&gt; = memory
-                .call_method0(py, <span class="macro">intern!</span>(py, <span class="string">"to_bytes"</span>))<span class="question-mark">?
-                </span>.extract(py)<span class="question-mark">?</span>;
-            buffer.copy_from_slice(bytes.as_ref(py).as_bytes());
+            <span class="kw">let </span>bytes: Bound&lt;PyBytes&gt; = memory.call_method0(<span class="macro">intern!</span>(py, <span class="string">"to_bytes"</span>))<span class="question-mark">?</span>.extract()<span class="question-mark">?</span>;
+            buffer.copy_from_slice(bytes.as_bytes());
 
             <span class="prelude-val">Ok</span>(())
         })
@@ -286,17 +290,16 @@
         buffer: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; anyhow::Result&lt;()&gt; {
         Python::with_gil(|py| {
+            <span class="kw">let </span>memory = <span class="self">self</span>.memory.bind(py);
+
             <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-            </span><span class="macro">tracing::debug!</span>(memory = %<span class="self">self</span>.memory.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, offset, len = buffer.len(), <span class="string">"Memory::write"</span>);
+            </span><span class="macro">tracing::debug!</span>(memory = %memory, <span class="question-mark">?</span><span class="self">self</span>.ty, offset, len = buffer.len(), <span class="string">"Memory::write"</span>);
 
-            <span class="kw">let </span>memory = <span class="self">self</span>.memory.getattr(py, <span class="macro">intern!</span>(py, <span class="string">"buffer"</span>))<span class="question-mark">?</span>;
-            <span class="kw">let </span>memory = js_uint8_array(py).call_method1(
-                py,
-                <span class="macro">intern!</span>(py, <span class="string">"new"</span>),
-                (memory, offset, buffer.len()),
-            )<span class="question-mark">?</span>;
+            <span class="kw">let </span>memory = memory.getattr(<span class="macro">intern!</span>(py, <span class="string">"buffer"</span>))<span class="question-mark">?</span>;
+            <span class="kw">let </span>memory = js_uint8_array(py)
+                .call_method1(<span class="macro">intern!</span>(py, <span class="string">"new"</span>), (memory, offset, buffer.len()))<span class="question-mark">?</span>;
 
-            memory.call_method1(py, <span class="macro">intern!</span>(py, <span class="string">"assign"</span>), (buffer,))<span class="question-mark">?</span>;
+            memory.call_method1(<span class="macro">intern!</span>(py, <span class="string">"assign"</span>), (buffer,))<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(())
         })
@@ -306,7 +309,7 @@
 <span class="kw">impl </span>ToPy <span class="kw">for </span>Memory {
     <span class="kw">fn </span>to_py(<span class="kw-2">&amp;</span><span class="self">self</span>, py: Python) -&gt; Py&lt;PyAny&gt; {
         <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-        </span><span class="macro">tracing::trace!</span>(value = %<span class="self">self</span>.memory.as_ref(py), <span class="question-mark">?</span><span class="self">self</span>.ty, <span class="string">"Memory::to_py"</span>);
+        </span><span class="macro">tracing::trace!</span>(value = %<span class="self">self</span>.memory.bind(py), <span class="question-mark">?</span><span class="self">self</span>.ty, <span class="string">"Memory::to_py"</span>);
 
         <span class="self">self</span>.memory.clone_ref(py)
     }
@@ -315,35 +318,36 @@
 <span class="kw">impl </span>Memory {
     <span class="doccomment">/// Construct a memory from an exported memory object
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_exported_memory(
-        py: Python,
-        memory: Py&lt;PyAny&gt;,
+        memory: Bound&lt;PyAny&gt;,
         ty: MemoryType,
     ) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
-        <span class="kw">if </span>!instanceof(py, <span class="kw-2">&amp;</span>memory, web_assembly_memory(py))<span class="question-mark">? </span>{
-            <span class="macro">anyhow::bail!</span>(
-                <span class="string">"expected WebAssembly.Memory but found {}"</span>,
-                memory.as_ref(py)
-            );
+        <span class="kw">if </span>!instanceof(<span class="kw-2">&amp;</span>memory, web_assembly_memory(memory.py()))<span class="question-mark">? </span>{
+            <span class="macro">anyhow::bail!</span>(<span class="string">"expected WebAssembly.Memory but found {memory}"</span>);
         }
 
         <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
-        </span><span class="macro">tracing::debug!</span>(memory = %memory.as_ref(py), <span class="question-mark">?</span>ty, <span class="string">"Memory::from_exported_memory"</span>);
+        </span><span class="macro">tracing::debug!</span>(memory = %memory, <span class="question-mark">?</span>ty, <span class="string">"Memory::from_exported_memory"</span>);
 
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ memory, ty })
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            memory: memory.unbind(),
+            ty,
+        })
     }
 }
 
-<span class="kw">fn </span>web_assembly_memory(py: Python) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>Py&lt;PyAny&gt; {
+<span class="kw">fn </span>web_assembly_memory(py: Python) -&gt; <span class="kw-2">&amp;</span>Bound&lt;PyAny&gt; {
     <span class="kw">static </span>WEB_ASSEMBLY_MEMORY: OnceLock&lt;Py&lt;PyAny&gt;&gt; = OnceLock::new();
     <span class="comment">// TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-    </span>WEB_ASSEMBLY_MEMORY.get_or_init(|| {
-        py.import(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
-            .unwrap()
-            .getattr(<span class="macro">intern!</span>(py, <span class="string">"WebAssembly"</span>))
-            .unwrap()
-            .getattr(<span class="macro">intern!</span>(py, <span class="string">"Memory"</span>))
-            .unwrap()
-            .into_py(py)
-    })
+    </span>WEB_ASSEMBLY_MEMORY
+        .get_or_init(|| {
+            py.import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))
+                .unwrap()
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"WebAssembly"</span>))
+                .unwrap()
+                .getattr(<span class="macro">intern!</span>(py, <span class="string">"Memory"</span>))
+                .unwrap()
+                .into_py(py)
+        })
+        .bind(py)
 }
 </code></pre></div></section></main></body></html>
