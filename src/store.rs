@@ -19,7 +19,7 @@ pub struct Store<T> {
     /// This is to allow referencing and reconstructing a calling context in
     /// exported functions, where it is not possible to prove the correct
     /// lifetime and borrowing rules statically nor dynamically using
-    /// RefCells. This is because functions can be re-entrant with exclusive but
+    /// `RefCell`s. This is because functions can be re-entrant with exclusive but
     /// stacked calling contexts. [`std::cell::RefCell`] and
     /// [`std::cell::RefMut`] do not allow for recursive usage by design
     /// (and it would be nigh impossible and quite expensive to enforce at
