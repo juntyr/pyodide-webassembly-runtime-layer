@@ -159,7 +159,7 @@ impl ParsedModule {
                 wasmparser::Payload::TableSection(section) => {
                     for table in section {
                         let table = table?;
-                        tables.push(TableType::from_parsed(&table.ty));
+                        tables.push(TableType::from_parsed(&table.ty)?);
                     }
                 },
                 wasmparser::Payload::MemorySection(section) => {
@@ -194,8 +194,8 @@ impl ParsedModule {
                                 ExternType::Func(sig)
                             },
                             wasmparser::TypeRef::Table(ty) => {
-                                tables.push(TableType::from_parsed(&ty));
-                                ExternType::Table(TableType::from_parsed(&ty))
+                                tables.push(TableType::from_parsed(&ty)?);
+                                ExternType::Table(TableType::from_parsed(&ty)?)
                             },
                             wasmparser::TypeRef::Memory(ty) => {
                                 memories.push(MemoryType::from_parsed(&ty)?);
@@ -303,17 +303,20 @@ impl ValueTypeFrom for ValueType {
     }
 }
 
-trait TableTypeFrom {
-    fn from_parsed(value: &wasmparser::TableType) -> Self;
+trait TableTypeFrom: Sized {
+    fn from_parsed(value: &wasmparser::TableType) -> anyhow::Result<Self>;
 }
 
 impl TableTypeFrom for TableType {
-    fn from_parsed(value: &wasmparser::TableType) -> Self {
-        Self::new(
+    fn from_parsed(value: &wasmparser::TableType) -> anyhow::Result<Self> {
+        Ok(Self::new(
             ValueType::from_ref(value.element_type),
-            value.initial,
-            value.maximum,
-        )
+            value.initial.try_into()?,
+            match value.maximum {
+                None => None,
+                Some(maximum) => Some(maximum.try_into()?),
+            },
+        ))
     }
 }
 
