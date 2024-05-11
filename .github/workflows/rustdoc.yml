@@ -30,7 +30,7 @@ jobs:
           RUSTDOCFLAGS="\
             --enable-index-page \
             --extern-html-root-url anyhow=https://docs.rs/anyhow/1.0/ \
-            --extern-html-root-url wasm_runtime_layer=https://docs.rs/wasm_runtime_layer/0.3/ \
+            --extern-html-root-url wasm_runtime_layer=https://docs.rs/wasm_runtime_layer/0.4/ \
             -Zunstable-options\
           " cargo doc \
             --all-features \
