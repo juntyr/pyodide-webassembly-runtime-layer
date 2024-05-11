@@ -147,15 +147,15 @@
 //! backend API to provide access to the web browser's [`WebAssembly`] runtime
 //! using [`Pyodide`].
 //!
-//! The implementation of this crate is heavily inspired by the [`web_backend`]
-//! of the [`wasm_runtime_layer`]. Instead of relying on the [`js-sys`] and
-//! [`wasm-bindgen`] crates to generate JavaScript-based bindings to the
-//! [`WebAssembly`] JavaScript API, this crate uses [`Pyodide`]'s [`js`] FFI
-//! layer to interact with [`WebAssembly`] through Python running inside
-//! WASM. `pyodide-webassembly-runtime-layer` is therefore useful when
-//! developing a Python module in Rust, e.g. using [`PyO3`], which requires
-//! access to some WASM runtime using the [`wasm_runtime_layer`] API and
-//! may be deployed to the web itself using [`Pyodide`].
+//! The implementation of this crate is heavily inspired by the
+//! [`js_wasm_runtime_layer`] backend for the [`wasm_runtime_layer`]. Instead of
+//! relying on the [`js-sys`] and [`wasm-bindgen`] crates to generate
+//! JavaScript-based bindings to the [`WebAssembly`] JavaScript API, this crate
+//! uses [`Pyodide`]'s [`js`] FFI layer to interact with [`WebAssembly`] through
+//! Python running inside WASM. `pyodide-webassembly-runtime-layer` is therefore
+//! useful when developing a Python module in Rust, e.g. using [`PyO3`], which
+//! requires access to some WASM runtime using the [`wasm_runtime_layer`] API
+//! and may be deployed to the web itself using [`Pyodide`].
 //!
 //! ## Memory Management
 //!
@@ -178,19 +178,19 @@
 //!   dropped or references to the [`Func`] are dropped, additional bookkeeping
 //!   data is required until both have been dropped.
 //!
-//! [`wasm_runtime_layer`]: https://docs.rs/wasm_runtime_layer/0.3/
+//! [`wasm_runtime_layer`]: https://docs.rs/wasm_runtime_layer/0.4/
 //! [`WebAssembly`]: https://developer.mozilla.org/en-US/docs/WebAssembly
 //! [`Pyodide`]: https://pyodide.org/en/stable/
-//! [`web_backend`]: https://github.com/DouglasDwyer/wasm_runtime_layer/tree/5d4360daedb9aa86529b6301b8580a7230908c86/src/backend/backend_web
+//! [`js_wasm_runtime_layer`]: https://docs.rs/js_wasm_runtime_layer/0.4/
 //! [`js-sys`]: https://docs.rs/js-sys/
 //! [`wasm-bindgen`]: https://docs.rs/wasm-bindgen/
 //! [`js`]: https://pyodide.org/en/stable/usage/api/python-api.html
-//! [`PyO3`]: https://docs.rs/pyo3/0.20/
+//! [`PyO3`]: https://docs.rs/pyo3/0.21/
 //! [new-issue]: https://github.com/juntyr/pyodide-webassembly-runtime-layer/issues/new
-//! [`Func::new`]: https://docs.rs/wasm_runtime_layer/0.3/wasm_runtime_layer/struct.Func.html#method.new
+//! [`Func::new`]: https://docs.rs/wasm_runtime_layer/0.4/wasm_runtime_layer/struct.Func.html#method.new
 //! [`wobbly`]: https://docs.rs/wobbly/0.1/
-//! [`Func`]: https://docs.rs/wasm_runtime_layer/0.3/wasm_runtime_layer/struct.Func.html
-//! [`Store`]: https://docs.rs/wasm_runtime_layer/0.3/wasm_runtime_layer/struct.Store.html
+//! [`Func`]: https://docs.rs/wasm_runtime_layer/0.4/wasm_runtime_layer/struct.Func.html
+//! [`Store`]: https://docs.rs/wasm_runtime_layer/0.4/wasm_runtime_layer/struct.Store.html
 
 </span><span class="kw">use </span>wasm_runtime_layer::backend::WasmEngine;
 
