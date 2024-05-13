@@ -1,6 +1,4 @@
-use std::sync::OnceLock;
-
-use pyo3::{intern, prelude::*};
+use pyo3::{intern, prelude::*, sync::GILOnceCell};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmGlobal},
     GlobalType,
@@ -41,7 +39,8 @@ impl WasmGlobal<Engine> for Global {
 
             let value = value.to_py(py);
 
-            let global = web_assembly_global(py).call_method1(intern!(py, "new"), (desc, value))?;
+            let global =
+                web_assembly_global(py)?.call_method1(intern!(py, "new"), (desc, value))?;
 
             Ok(Self {
                 global: global.unbind(),
@@ -104,7 +103,7 @@ impl Global {
         global: Bound<PyAny>,
         ty: GlobalType,
     ) -> anyhow::Result<Self> {
-        if !instanceof(&global, web_assembly_global(global.py()))? {
+        if !instanceof(&global, web_assembly_global(global.py())?)? {
             anyhow::bail!("expected WebAssembly.Global but found {global}",);
         }
 
@@ -118,18 +117,16 @@ impl Global {
     }
 }
 
-fn web_assembly_global(py: Python) -> &Bound<PyAny> {
-    static WEB_ASSEMBLY_GLOBAL: OnceLock<Py<PyAny>> = OnceLock::new();
-    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+fn web_assembly_global(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_GLOBAL: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
     WEB_ASSEMBLY_GLOBAL
-        .get_or_init(|| {
-            py.import_bound(intern!(py, "js"))
-                .unwrap()
-                .getattr(intern!(py, "WebAssembly"))
-                .unwrap()
-                .getattr(intern!(py, "Global"))
-                .unwrap()
-                .into_py(py)
+        .get_or_try_init(py, || {
+            Ok(py
+                .import_bound(intern!(py, "js"))?
+                .getattr(intern!(py, "WebAssembly"))?
+                .getattr(intern!(py, "Global"))?
+                .into_py(py))
         })
-        .bind(py)
+        .map(|x| x.bind(py))
 }

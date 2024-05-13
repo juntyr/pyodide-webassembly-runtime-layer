@@ -1,6 +1,4 @@
-use std::sync::OnceLock;
-
-use pyo3::{intern, prelude::*, types::PyBytes};
+use pyo3::{intern, prelude::*, sync::GILOnceCell, types::PyBytes};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, WasmMemory},
     MemoryType,
@@ -36,7 +34,7 @@ impl WasmMemory<Engine> for Memory {
                 desc.setattr(intern!(py, "maximum"), maximum)?;
             }
 
-            let memory = web_assembly_memory(py).call_method1(intern!(py, "new"), (desc,))?;
+            let memory = web_assembly_memory(py)?.call_method1(intern!(py, "new"), (desc,))?;
 
             Ok(Self {
                 memory: memory.unbind(),
@@ -97,7 +95,7 @@ impl WasmMemory<Engine> for Memory {
             tracing::debug!(memory = %memory, ?self.ty, offset, len = buffer.len(), "Memory::read");
 
             let memory = memory.getattr(intern!(py, "buffer"))?;
-            let memory = js_uint8_array(py)
+            let memory = js_uint8_array(py)?
                 .call_method1(intern!(py, "new"), (memory, offset, buffer.len()))?;
 
             let bytes: Bound<PyBytes> = memory.call_method0(intern!(py, "to_bytes"))?.extract()?;
@@ -120,7 +118,7 @@ impl WasmMemory<Engine> for Memory {
             tracing::debug!(memory = %memory, ?self.ty, offset, len = buffer.len(), "Memory::write");
 
             let memory = memory.getattr(intern!(py, "buffer"))?;
-            let memory = js_uint8_array(py)
+            let memory = js_uint8_array(py)?
                 .call_method1(intern!(py, "new"), (memory, offset, buffer.len()))?;
 
             memory.call_method1(intern!(py, "assign"), (buffer,))?;
@@ -145,7 +143,7 @@ impl Memory {
         memory: Bound<PyAny>,
         ty: MemoryType,
     ) -> anyhow::Result<Self> {
-        if !instanceof(&memory, web_assembly_memory(memory.py()))? {
+        if !instanceof(&memory, web_assembly_memory(memory.py())?)? {
             anyhow::bail!("expected WebAssembly.Memory but found {memory}");
         }
 
@@ -159,18 +157,16 @@ impl Memory {
     }
 }
 
-fn web_assembly_memory(py: Python) -> &Bound<PyAny> {
-    static WEB_ASSEMBLY_MEMORY: OnceLock<Py<PyAny>> = OnceLock::new();
-    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+fn web_assembly_memory(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_MEMORY: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
     WEB_ASSEMBLY_MEMORY
-        .get_or_init(|| {
-            py.import_bound(intern!(py, "js"))
-                .unwrap()
-                .getattr(intern!(py, "WebAssembly"))
-                .unwrap()
-                .getattr(intern!(py, "Memory"))
-                .unwrap()
-                .into_py(py)
+        .get_or_try_init(py, || {
+            Ok(py
+                .import_bound(intern!(py, "js"))?
+                .getattr(intern!(py, "WebAssembly"))?
+                .getattr(intern!(py, "Memory"))?
+                .into_py(py))
         })
-        .bind(py)
+        .map(|x| x.bind(py))
 }

@@ -1,7 +1,7 @@
-use std::{collections::BTreeMap, sync::OnceLock};
+use std::collections::BTreeMap;
 
 use fxhash::FxHashMap;
-use pyo3::{intern, prelude::*};
+use pyo3::{intern, prelude::*, sync::GILOnceCell};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Export, Extern, Imports, WasmInstance, WasmModule},
     ExportType, ExternType,
@@ -37,7 +37,7 @@ impl WasmInstance<Engine> for Instance {
 
             let imports_object = create_imports_object(py, imports)?;
 
-            let instance = web_assembly_instance(py)
+            let instance = web_assembly_instance(py)?
                 .call_method1(intern!(py, "new"), (module.module(py), imports_object))?;
 
             let exports = instance.getattr(intern!(py, "exports"))?;
@@ -146,18 +146,16 @@ fn process_exports(
         .collect()
 }
 
-fn web_assembly_instance(py: Python) -> &Bound<PyAny> {
-    static WEB_ASSEMBLY_INSTANCE: OnceLock<Py<PyAny>> = OnceLock::new();
-    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+fn web_assembly_instance(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_INSTANCE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
     WEB_ASSEMBLY_INSTANCE
-        .get_or_init(|| {
-            py.import_bound(intern!(py, "js"))
-                .unwrap()
-                .getattr(intern!(py, "WebAssembly"))
-                .unwrap()
-                .getattr(intern!(py, "Instance"))
-                .unwrap()
-                .into_py(py)
+        .get_or_try_init(py, || {
+            Ok(py
+                .import_bound(intern!(py, "js"))?
+                .getattr(intern!(py, "WebAssembly"))?
+                .getattr(intern!(py, "Instance"))?
+                .into_py(py))
         })
-        .bind(py)
+        .map(|x| x.bind(py))
 }

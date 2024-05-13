@@ -1,7 +1,7 @@
-use std::{error::Error, fmt, sync::OnceLock};
+use std::{error::Error, fmt};
 
 use flagset::FlagSet;
-use pyo3::{intern, prelude::*};
+use pyo3::{intern, prelude::*, sync::GILOnceCell};
 
 use crate::conversion::js_uint8_array;
 
@@ -93,22 +93,19 @@ impl WasmFeatureExtension {
         required
     }
 
-    pub fn supported() -> &'static FlagSet<Self> {
-        static SUPPORTED_FEATURES: OnceLock<FlagSet<WasmFeatureExtension>> = OnceLock::new();
+    pub fn supported(py: Python) -> Result<&'static FlagSet<Self>, PyErr> {
+        static SUPPORTED_FEATURES: GILOnceCell<FlagSet<WasmFeatureExtension>> = GILOnceCell::new();
 
-        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
-        SUPPORTED_FEATURES.get_or_init(|| {
-            Python::with_gil(|py| {
-                let mut supported = FlagSet::default();
+        SUPPORTED_FEATURES.get_or_try_init(py, || {
+            let mut supported = FlagSet::default();
 
-                supported.extend(
-                    FlagSet::<Self>::full()
-                        .into_iter()
-                        .filter(|extension| extension.check_if_supported(py).unwrap()),
-                );
+            for extension in FlagSet::<Self>::full() {
+                if extension.check_if_supported(py)? {
+                    supported |= extension;
+                }
+            }
 
-                supported
-            })
+            Ok(supported)
         })
     }
 
@@ -166,14 +163,14 @@ impl WasmFeatureExtension {
     }
 
     fn try_validate_wasm_bytes(py: Python, bytes: &[u8]) -> anyhow::Result<bool> {
-        let buffer = js_uint8_array(py).call_method1(intern!(py, "new"), (bytes,))?;
-        let valid = web_assembly_validate(py).call1((buffer,))?.extract()?;
+        let buffer = js_uint8_array(py)?.call_method1(intern!(py, "new"), (bytes,))?;
+        let valid = web_assembly_validate(py)?.call1((buffer,))?.extract()?;
         Ok(valid)
     }
 
     fn try_create_wasm_module_from_bytes(py: Python, bytes: &[u8]) -> anyhow::Result<bool> {
-        let buffer = js_uint8_array(py).call_method1(intern!(py, "new"), (bytes,))?;
-        let module = web_assembly_module(py).call_method1(intern!(py, "new"), (buffer,));
+        let buffer = js_uint8_array(py)?.call_method1(intern!(py, "new"), (bytes,))?;
+        let module = web_assembly_module(py)?.call_method1(intern!(py, "new"), (buffer,));
         Ok(module.is_ok())
     }
 }
@@ -204,34 +201,30 @@ impl fmt::Display for WasmFeatureExtension {
     }
 }
 
-fn web_assembly_validate(py: Python) -> &Bound<PyAny> {
-    static WEB_ASSEMBLY_VALIDATE: OnceLock<Py<PyAny>> = OnceLock::new();
-    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+fn web_assembly_validate(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_VALIDATE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
     WEB_ASSEMBLY_VALIDATE
-        .get_or_init(|| {
-            py.import_bound(intern!(py, "js"))
-                .unwrap()
-                .getattr(intern!(py, "WebAssembly"))
-                .unwrap()
-                .getattr(intern!(py, "validate"))
-                .unwrap()
-                .into_py(py)
+        .get_or_try_init(py, || {
+            Ok(py
+                .import_bound(intern!(py, "js"))?
+                .getattr(intern!(py, "WebAssembly"))?
+                .getattr(intern!(py, "validate"))?
+                .into_py(py))
         })
-        .bind(py)
+        .map(|x| x.bind(py))
 }
 
-fn web_assembly_module(py: Python) -> &Bound<PyAny> {
-    static WEB_ASSEMBLY_MODULE: OnceLock<Py<PyAny>> = OnceLock::new();
-    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+fn web_assembly_module(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_MODULE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
     WEB_ASSEMBLY_MODULE
-        .get_or_init(|| {
-            py.import_bound(intern!(py, "js"))
-                .unwrap()
-                .getattr(intern!(py, "WebAssembly"))
-                .unwrap()
-                .getattr(intern!(py, "Module"))
-                .unwrap()
-                .into_py(py)
+        .get_or_try_init(py, || {
+            Ok(py
+                .import_bound(intern!(py, "js"))?
+                .getattr(intern!(py, "WebAssembly"))?
+                .getattr(intern!(py, "Module"))?
+                .into_py(py))
         })
-        .bind(py)
+        .map(|x| x.bind(py))
 }

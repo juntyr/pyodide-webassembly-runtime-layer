@@ -1,6 +1,4 @@
-use std::sync::OnceLock;
-
-use pyo3::{intern, prelude::*, types::IntoPyDict};
+use pyo3::{intern, prelude::*, sync::GILOnceCell, types::IntoPyDict};
 use wasm_runtime_layer::{
     backend::{Extern, Value},
     ValueType,
@@ -23,7 +21,8 @@ impl ToPy for Value<Engine> {
             Self::I32(v) => v.to_object(py),
             // WebAssembly explicitly requires all i64's to be a BigInt
             // Pyodide auto-converts BigInts, so we wrap it in an Object
-            Self::I64(v) => i64_to_js_bigint(py, *v).unbind(),
+            // Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
+            Self::I64(v) => i64_to_js_bigint(py, *v).unwrap().unbind(),
             Self::F32(v) => v.to_object(py),
             Self::F64(v) => v.to_object(py),
             Self::FuncRef(None) | Self::ExternRef(None) => py.None(),
@@ -118,134 +117,120 @@ impl ValueTypeExt for ValueType {
     }
 }
 
-#[must_use]
-fn i64_to_js_bigint(py: Python, v: i64) -> Bound<PyAny> {
-    fn object_wrapped_bigint(py: Python) -> &Bound<PyAny> {
-        static OBJECT_WRAPPED_BIGINT: OnceLock<Py<PyAny>> = OnceLock::new();
-        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+fn i64_to_js_bigint(py: Python, v: i64) -> Result<Bound<PyAny>, PyErr> {
+    fn object_wrapped_bigint(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+        static OBJECT_WRAPPED_BIGINT: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
         OBJECT_WRAPPED_BIGINT
-            .get_or_init(|| {
-                py.import_bound(intern!(py, "pyodide"))
-                    .unwrap()
-                    .getattr(intern!(py, "code"))
-                    .unwrap()
-                    .getattr(intern!(py, "run_js"))
-                    .unwrap()
+            .get_or_try_init(py, || {
+                Ok(py
+                    .import_bound(intern!(py, "pyodide"))?
+                    .getattr(intern!(py, "code"))?
+                    .getattr(intern!(py, "run_js"))?
                     .call1((
                         "function objectWrappedBigInt(v){ return Object(BigInt(v)); } \
                          objectWrappedBigInt",
-                    ))
-                    .unwrap()
-                    .into_py(py)
+                    ))?
+                    .into_py(py))
             })
-            .bind(py)
+            .map(|x| x.bind(py))
     }
 
-    // Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
-    object_wrapped_bigint(py).call1((v,)).unwrap()
+    object_wrapped_bigint(py)?.call1((v,))
 }
 
 fn try_i64_from_js_bigint(v: Bound<PyAny>) -> Result<i64, PyErr> {
-    fn js_bigint(py: Python) -> &Bound<PyAny> {
-        static JS_BIG_INT: OnceLock<Py<PyAny>> = OnceLock::new();
-        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+    fn js_bigint(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+        static JS_BIG_INT: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
         JS_BIG_INT
-            .get_or_init(|| {
-                py.import_bound(intern!(py, "js"))
-                    .unwrap()
-                    .getattr(intern!(py, "BigInt"))
-                    .unwrap()
-                    .into_py(py)
+            .get_or_try_init(py, || {
+                Ok(py
+                    .import_bound(intern!(py, "js"))?
+                    .getattr(intern!(py, "BigInt"))?
+                    .into_py(py))
             })
-            .bind(py)
+            .map(|x| x.bind(py))
     }
 
     // First wrap inside a BigInt to force coersion, then try to convert into an i64
-    js_bigint(v.py()).call1((v,))?.extract()
+    js_bigint(v.py())?.call1((v,))?.extract()
 }
 
-pub fn js_uint8_array(py: Python) -> &Bound<PyAny> {
-    static JS_UINT8_ARRAY: OnceLock<Py<PyAny>> = OnceLock::new();
-    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+pub fn js_uint8_array(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static JS_UINT8_ARRAY: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
     JS_UINT8_ARRAY
-        .get_or_init(|| {
-            py.import_bound(intern!(py, "js"))
-                .unwrap()
-                .getattr(intern!(py, "Uint8Array"))
-                .unwrap()
-                .into_py(py)
+        .get_or_try_init(py, || {
+            Ok(py
+                .import_bound(intern!(py, "js"))?
+                .getattr(intern!(py, "Uint8Array"))?
+                .into_py(py))
         })
-        .bind(py)
+        .map(|x| x.bind(py))
 }
 
 /// Check if `object` is an instance of the JavaScript class with `constructor`.
 pub fn instanceof(object: &Bound<PyAny>, constructor: &Bound<PyAny>) -> Result<bool, PyErr> {
-    fn is_instance_of(py: Python) -> &Bound<PyAny> {
-        static IS_INSTANCE_OF: OnceLock<Py<PyAny>> = OnceLock::new();
-        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+    fn is_instance_of(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+        static IS_INSTANCE_OF: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
         IS_INSTANCE_OF
-            .get_or_init(|| {
-                py.import_bound(intern!(py, "pyodide"))
-                    .unwrap()
-                    .getattr(intern!(py, "code"))
-                    .unwrap()
-                    .getattr(intern!(py, "run_js"))
-                    .unwrap()
+            .get_or_try_init(py, || {
+                Ok(py
+                    .import_bound(intern!(py, "pyodide"))?
+                    .getattr(intern!(py, "code"))?
+                    .getattr(intern!(py, "run_js"))?
                     .call1((
                         "function isInstanceOf(object, constructor){ return (object instanceof \
                          constructor); } isInstanceOf",
-                    ))
-                    .unwrap()
-                    .into_py(py)
+                    ))?
+                    .into_py(py))
             })
-            .bind(py)
+            .map(|x| x.bind(py))
     }
 
-    is_instance_of(object.py())
+    is_instance_of(object.py())?
         .call1((object, constructor))?
         .extract()
 }
 
 pub fn create_js_object(py: Python) -> Result<Bound<PyAny>, PyErr> {
-    fn js_object_new(py: Python) -> &Bound<PyAny> {
-        static JS_OBJECT_NEW: OnceLock<Py<PyAny>> = OnceLock::new();
-        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+    fn js_object_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+        static JS_OBJECT_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
         JS_OBJECT_NEW
-            .get_or_init(|| {
-                py.import_bound(intern!(py, "js"))
-                    .unwrap()
-                    .getattr(intern!(py, "Object"))
-                    .unwrap()
-                    .getattr(intern!(py, "new"))
-                    .unwrap()
-                    .into_py(py)
+            .get_or_try_init(py, || {
+                Ok(py
+                    .import_bound(intern!(py, "js"))?
+                    .getattr(intern!(py, "Object"))?
+                    .getattr(intern!(py, "new"))?
+                    .into_py(py))
             })
-            .bind(py)
+            .map(|x| x.bind(py))
     }
 
-    js_object_new(py).call0()
+    js_object_new(py)?.call0()
 }
 
 pub fn py_to_js_proxy<T>(object: Bound<T>) -> Result<Bound<PyAny>, PyErr> {
-    fn to_js(py: Python) -> &Bound<PyAny> {
-        static TO_JS: OnceLock<Py<PyAny>> = OnceLock::new();
-        // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+    fn to_js(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+        static TO_JS: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
         TO_JS
-            .get_or_init(|| {
-                py.import_bound(intern!(py, "pyodide"))
-                    .unwrap()
-                    .getattr(intern!(py, "ffi"))
-                    .unwrap()
-                    .getattr(intern!(py, "to_js"))
-                    .unwrap()
-                    .into_py(py)
+            .get_or_try_init(py, || {
+                Ok(py
+                    .import_bound(intern!(py, "pyodide"))?
+                    .getattr(intern!(py, "ffi"))?
+                    .getattr(intern!(py, "to_js"))?
+                    .into_py(py))
             })
-            .bind(py)
+            .map(|x| x.bind(py))
     }
 
     let py = object.py();
 
-    to_js(py).call(
+    to_js(py)?.call(
         (object,),
         Some(&[(intern!(py, "create_pyproxies"), true)].into_py_dict_bound(py)),
     )

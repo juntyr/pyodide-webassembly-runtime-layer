@@ -1,8 +1,8 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 use anyhow::Context;
 use fxhash::FxHashMap;
-use pyo3::{intern, prelude::*};
+use pyo3::{intern, prelude::*, sync::GILOnceCell};
 use wasm_runtime_layer::{
     backend::WasmModule, ExportType, ExternType, FuncType, GlobalType, ImportType, MemoryType,
     TableType, ValueType,
@@ -41,13 +41,13 @@ impl WasmModule<Engine> for Module {
             let parsed = ParsedModule::parse(&bytes)?;
 
             let buffer =
-                js_uint8_array(py).call_method1(intern!(py, "new"), (bytes.as_slice(),))?;
+                js_uint8_array(py)?.call_method1(intern!(py, "new"), (bytes.as_slice(),))?;
 
-            let Ok(module) = web_assembly_module(py).call_method1(intern!(py, "new"), (buffer,))
+            let Ok(module) = web_assembly_module(py)?.call_method1(intern!(py, "new"), (buffer,))
             else {
                 anyhow::bail!(UnsupportedWasmFeatureExtensionError {
                     required: WasmFeatureExtension::required(&bytes),
-                    supported: *WasmFeatureExtension::supported(),
+                    supported: *Python::with_gil(WasmFeatureExtension::supported)?,
                 });
             };
 
@@ -354,18 +354,16 @@ impl GlobalTypeFrom for GlobalType {
     }
 }
 
-fn web_assembly_module(py: Python) -> &Bound<PyAny> {
-    static WEB_ASSEMBLY_MODULE: OnceLock<Py<PyAny>> = OnceLock::new();
-    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+fn web_assembly_module(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_MODULE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
     WEB_ASSEMBLY_MODULE
-        .get_or_init(|| {
-            py.import_bound(intern!(py, "js"))
-                .unwrap()
-                .getattr(intern!(py, "WebAssembly"))
-                .unwrap()
-                .getattr(intern!(py, "Module"))
-                .unwrap()
-                .into_py(py)
+        .get_or_try_init(py, || {
+            Ok(py
+                .import_bound(intern!(py, "js"))?
+                .getattr(intern!(py, "WebAssembly"))?
+                .getattr(intern!(py, "Module"))?
+                .into_py(py))
         })
-        .bind(py)
+        .map(|x| x.bind(py))
 }

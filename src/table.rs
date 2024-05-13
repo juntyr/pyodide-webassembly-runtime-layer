@@ -1,6 +1,4 @@
-use std::sync::OnceLock;
-
-use pyo3::{intern, prelude::*};
+use pyo3::{intern, prelude::*, sync::GILOnceCell};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmTable},
     TableType, ValueType,
@@ -43,7 +41,7 @@ impl WasmTable<Engine> for Table {
 
             let init = init.to_py(py);
 
-            let table = web_assembly_table(py).call_method1(intern!(py, "new"), (desc, init))?;
+            let table = web_assembly_table(py)?.call_method1(intern!(py, "new"), (desc, init))?;
 
             Ok(Self {
                 table: table.unbind(),
@@ -141,7 +139,7 @@ impl ToPy for Table {
 impl Table {
     /// Creates a new table from a Python value
     pub(crate) fn from_exported_table(table: Bound<PyAny>, ty: TableType) -> anyhow::Result<Self> {
-        if !instanceof(&table, web_assembly_table(table.py()))? {
+        if !instanceof(&table, web_assembly_table(table.py())?)? {
             anyhow::bail!("expected WebAssembly.Table but found {}", table);
         }
 
@@ -160,18 +158,16 @@ impl Table {
     }
 }
 
-fn web_assembly_table(py: Python) -> &Bound<PyAny> {
-    static WEB_ASSEMBLY_TABLE: OnceLock<Py<PyAny>> = OnceLock::new();
-    // TODO: propagate error once [`OnceCell::get_or_try_init`] is stable
+fn web_assembly_table(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_TABLE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+
     WEB_ASSEMBLY_TABLE
-        .get_or_init(|| {
-            py.import_bound(intern!(py, "js"))
-                .unwrap()
-                .getattr(intern!(py, "WebAssembly"))
-                .unwrap()
-                .getattr(intern!(py, "Table"))
-                .unwrap()
-                .into_py(py)
+        .get_or_try_init(py, || {
+            Ok(py
+                .import_bound(intern!(py, "js"))?
+                .getattr(intern!(py, "WebAssembly"))?
+                .getattr(intern!(py, "Table"))?
+                .into_py(py))
         })
-        .bind(py)
+        .map(|x| x.bind(py))
 }
