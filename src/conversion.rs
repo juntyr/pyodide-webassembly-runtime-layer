@@ -131,7 +131,7 @@ fn i64_to_js_bigint(py: Python, v: i64) -> Result<Bound<PyAny>, PyErr> {
                         "function objectWrappedBigInt(v){ return Object(BigInt(v)); } \
                          objectWrappedBigInt",
                     ))?
-                    .into_py(py))
+                    .unbind())
             })
             .map(|x| x.bind(py))
     }
@@ -148,7 +148,7 @@ fn try_i64_from_js_bigint(v: Bound<PyAny>) -> Result<i64, PyErr> {
                 Ok(py
                     .import_bound(intern!(py, "js"))?
                     .getattr(intern!(py, "BigInt"))?
-                    .into_py(py))
+                    .unbind())
             })
             .map(|x| x.bind(py))
     }
@@ -165,7 +165,7 @@ pub fn js_uint8_array(py: Python) -> Result<&Bound<PyAny>, PyErr> {
             Ok(py
                 .import_bound(intern!(py, "js"))?
                 .getattr(intern!(py, "Uint8Array"))?
-                .into_py(py))
+                .unbind())
         })
         .map(|x| x.bind(py))
 }
@@ -185,7 +185,7 @@ pub fn instanceof(object: &Bound<PyAny>, constructor: &Bound<PyAny>) -> Result<b
                         "function isInstanceOf(object, constructor){ return (object instanceof \
                          constructor); } isInstanceOf",
                     ))?
-                    .into_py(py))
+                    .unbind())
             })
             .map(|x| x.bind(py))
     }
@@ -205,7 +205,7 @@ pub fn create_js_object(py: Python) -> Result<Bound<PyAny>, PyErr> {
                     .import_bound(intern!(py, "js"))?
                     .getattr(intern!(py, "Object"))?
                     .getattr(intern!(py, "new"))?
-                    .into_py(py))
+                    .unbind())
             })
             .map(|x| x.bind(py))
     }
@@ -223,7 +223,7 @@ pub fn py_to_js_proxy<T>(object: Bound<T>) -> Result<Bound<PyAny>, PyErr> {
                     .import_bound(intern!(py, "pyodide"))?
                     .getattr(intern!(py, "ffi"))?
                     .getattr(intern!(py, "to_js"))?
-                    .into_py(py))
+                    .unbind())
             })
             .map(|x| x.bind(py))
     }

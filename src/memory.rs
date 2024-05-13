@@ -166,7 +166,7 @@ fn web_assembly_memory(py: Python) -> Result<&Bound<PyAny>, PyErr> {
                 .import_bound(intern!(py, "js"))?
                 .getattr(intern!(py, "WebAssembly"))?
                 .getattr(intern!(py, "Memory"))?
-                .into_py(py))
+                .unbind())
         })
         .map(|x| x.bind(py))
 }

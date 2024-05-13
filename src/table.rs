@@ -167,7 +167,7 @@ fn web_assembly_table(py: Python) -> Result<&Bound<PyAny>, PyErr> {
                 .import_bound(intern!(py, "js"))?
                 .getattr(intern!(py, "WebAssembly"))?
                 .getattr(intern!(py, "Table"))?
-                .into_py(py))
+                .unbind())
         })
         .map(|x| x.bind(py))
 }

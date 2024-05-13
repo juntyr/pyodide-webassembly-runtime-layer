@@ -126,7 +126,7 @@ fn web_assembly_global(py: Python) -> Result<&Bound<PyAny>, PyErr> {
                 .import_bound(intern!(py, "js"))?
                 .getattr(intern!(py, "WebAssembly"))?
                 .getattr(intern!(py, "Global"))?
-                .into_py(py))
+                .unbind())
         })
         .map(|x| x.bind(py))
 }
