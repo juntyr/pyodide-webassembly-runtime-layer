@@ -316,7 +316,7 @@
                 .import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))<span class="question-mark">?
                 </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"WebAssembly"</span>))<span class="question-mark">?
                 </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"Instance"</span>))<span class="question-mark">?
-                </span>.into_py(py))
+                </span>.unbind())
         })
         .map(|x| x.bind(py))
 }

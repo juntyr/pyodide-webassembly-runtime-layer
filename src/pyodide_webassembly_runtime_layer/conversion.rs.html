@@ -368,7 +368,7 @@
                         <span class="string">"function objectWrappedBigInt(v){ return Object(BigInt(v)); } \
                          objectWrappedBigInt"</span>,
                     ))<span class="question-mark">?
-                    </span>.into_py(py))
+                    </span>.unbind())
             })
             .map(|x| x.bind(py))
     }
@@ -385,7 +385,7 @@
                 <span class="prelude-val">Ok</span>(py
                     .import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))<span class="question-mark">?
                     </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"BigInt"</span>))<span class="question-mark">?
-                    </span>.into_py(py))
+                    </span>.unbind())
             })
             .map(|x| x.bind(py))
     }
@@ -402,7 +402,7 @@
             <span class="prelude-val">Ok</span>(py
                 .import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))<span class="question-mark">?
                 </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"Uint8Array"</span>))<span class="question-mark">?
-                </span>.into_py(py))
+                </span>.unbind())
         })
         .map(|x| x.bind(py))
 }
@@ -422,7 +422,7 @@
                         <span class="string">"function isInstanceOf(object, constructor){ return (object instanceof \
                          constructor); } isInstanceOf"</span>,
                     ))<span class="question-mark">?
-                    </span>.into_py(py))
+                    </span>.unbind())
             })
             .map(|x| x.bind(py))
     }
@@ -442,7 +442,7 @@
                     .import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))<span class="question-mark">?
                     </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"Object"</span>))<span class="question-mark">?
                     </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"new"</span>))<span class="question-mark">?
-                    </span>.into_py(py))
+                    </span>.unbind())
             })
             .map(|x| x.bind(py))
     }
@@ -460,7 +460,7 @@
                     .import_bound(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))<span class="question-mark">?
                     </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"ffi"</span>))<span class="question-mark">?
                     </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"to_js"</span>))<span class="question-mark">?
-                    </span>.into_py(py))
+                    </span>.unbind())
             })
             .map(|x| x.bind(py))
     }
