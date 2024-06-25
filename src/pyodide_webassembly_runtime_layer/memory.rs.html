@@ -207,7 +207,7 @@
     <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         Python::with_gil(|py| <span class="self">Self </span>{
             memory: <span class="self">self</span>.memory.clone_ref(py),
-            ty: <span class="self">self</span>.ty.clone(),
+            ty: <span class="self">self</span>.ty,
         })
     }
 }

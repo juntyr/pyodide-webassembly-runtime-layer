@@ -302,7 +302,7 @@
         Python::with_gil(|py| <span class="self">Self </span>{
             func: <span class="self">self</span>.func.clone_ref(py),
             ty: <span class="self">self</span>.ty.clone(),
-            user_state: <span class="self">self</span>.user_state.clone(),
+            user_state: <span class="self">self</span>.user_state,
         })
     }
 }
