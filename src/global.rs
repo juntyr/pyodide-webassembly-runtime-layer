@@ -14,12 +14,21 @@ use crate::{
 /// This type wraps a [`WebAssembly.Global`] from the JavaScript API.
 ///
 /// [`WebAssembly.Global`]: https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Global
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Global {
     /// The global value
     global: Py<PyAny>,
     /// The global type
     ty: GlobalType,
+}
+
+impl Clone for Global {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| Self {
+            global: self.global.clone_ref(py),
+            ty: self.ty.clone(),
+        })
+    }
 }
 
 impl WasmGlobal<Engine> for Global {

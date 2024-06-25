@@ -21,7 +21,7 @@ use crate::{
 /// function.
 ///
 /// [`Instance`]: crate::instance::Instance
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Func {
     /// The inner function
     func: Py<PyAny>,
@@ -29,6 +29,16 @@ pub struct Func {
     ty: FuncType,
     /// The user state type of the context
     user_state: Option<TypeId>,
+}
+
+impl Clone for Func {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| Self {
+            func: self.func.clone_ref(py),
+            ty: self.ty.clone(),
+            user_state: self.user_state.clone(),
+        })
+    }
 }
 
 impl WasmFunc<Engine> for Func {

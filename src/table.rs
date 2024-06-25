@@ -9,7 +9,7 @@ use crate::{
     Engine,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 /// A WASM table.
 ///
 /// This type wraps a [`WebAssembly.Table`] from the JavaScript API.
@@ -20,6 +20,15 @@ pub struct Table {
     table: Py<PyAny>,
     /// The table signature
     ty: TableType,
+}
+
+impl Clone for Table {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| Self {
+            table: self.table.clone_ref(py),
+            ty: self.ty.clone(),
+        })
+    }
 }
 
 impl WasmTable<Engine> for Table {

@@ -9,7 +9,7 @@ use crate::{
     Engine,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 /// A WASM memory.
 ///
 /// This type wraps a [`WebAssembly.Memory`] from the JavaScript API.
@@ -20,6 +20,15 @@ pub struct Memory {
     memory: Py<PyAny>,
     /// The memory type
     ty: MemoryType,
+}
+
+impl Clone for Memory {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| Self {
+            memory: self.memory.clone_ref(py),
+            ty: self.ty.clone(),
+        })
+    }
 }
 
 impl WasmMemory<Engine> for Memory {

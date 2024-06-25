@@ -10,12 +10,21 @@ use crate::{
 };
 
 /// Extern host reference type.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ExternRef {
     /// The inner extern ref object, for host access, optional
     host: Option<Arc<AnyExternRef>>,
     /// The inner extern ref object, for guest access, opaque
     guest: Py<PyAny>,
+}
+
+impl Clone for ExternRef {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| Self {
+            host: self.host.clone(),
+            guest: self.guest.clone_ref(py),
+        })
+    }
 }
 
 impl WasmExternRef<Engine> for ExternRef {

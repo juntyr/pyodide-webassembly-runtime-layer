@@ -14,7 +14,7 @@ use crate::{
     Engine,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 /// A WASM module.
 ///
 /// This type wraps a [`WebAssembly.Module`] from the JavaScript API.
@@ -25,6 +25,15 @@ pub struct Module {
     module: Py<PyAny>,
     /// The parsed module, containing import and export signatures
     parsed: Arc<ParsedModule>,
+}
+
+impl Clone for Module {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| Self {
+            module: self.module.clone_ref(py),
+            parsed: self.parsed.clone(),
+        })
+    }
 }
 
 impl WasmModule<Engine> for Module {

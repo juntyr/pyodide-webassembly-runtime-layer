@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use fxhash::FxHashMap;
 use pyo3::{intern, prelude::*, sync::GILOnceCell};
@@ -17,12 +17,21 @@ use crate::{
 /// This type wraps a [`WebAssembly.Instance`] from the JavaScript API.
 ///
 /// [`WebAssembly.Instance`]: https://developer.mozilla.org/en-US/docs/WebAssembly/JavaScript_interface/Instance
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Instance {
     /// The inner instance
-    _instance: Py<PyAny>,
+    instance: Py<PyAny>,
     /// The exports of the instance
-    exports: FxHashMap<String, Extern<Engine>>,
+    exports: Arc<FxHashMap<String, Extern<Engine>>>,
+}
+
+impl Clone for Instance {
+    fn clone(&self) -> Self {
+        Python::with_gil(|py| Self {
+            instance: self.instance.clone_ref(py),
+            exports: self.exports.clone(),
+        })
+    }
 }
 
 impl WasmInstance<Engine> for Instance {
@@ -44,8 +53,8 @@ impl WasmInstance<Engine> for Instance {
             let exports = process_exports(&exports, module)?;
 
             Ok(Self {
-                _instance: instance.unbind(),
-                exports,
+                instance: instance.unbind(),
+                exports: Arc::new(exports),
             })
         })
     }
