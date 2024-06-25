@@ -2,7 +2,7 @@
 name = "pyodide-webassembly-runtime-layer"
 version = "0.3.1"
 edition = "2021"
-rust-version = "1.71"
+rust-version = "1.76"
 license = "MIT OR Apache-2.0"
 authors = [
     "Juniper Tyree <juniper.tyree@helsinki.fi>",
