@@ -26,7 +26,7 @@ impl Clone for Global {
     fn clone(&self) -> Self {
         Python::with_gil(|py| Self {
             global: self.global.clone_ref(py),
-            ty: self.ty.clone(),
+            ty: self.ty,
         })
     }
 }

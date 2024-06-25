@@ -26,7 +26,7 @@ impl Clone for Table {
     fn clone(&self) -> Self {
         Python::with_gil(|py| Self {
             table: self.table.clone_ref(py),
-            ty: self.ty.clone(),
+            ty: self.ty,
         })
     }
 }

@@ -36,7 +36,7 @@ impl Clone for Func {
         Python::with_gil(|py| Self {
             func: self.func.clone_ref(py),
             ty: self.ty.clone(),
-            user_state: self.user_state.clone(),
+            user_state: self.user_state,
         })
     }
 }

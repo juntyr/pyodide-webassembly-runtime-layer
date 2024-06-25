@@ -26,7 +26,7 @@ impl Clone for Memory {
     fn clone(&self) -> Self {
         Python::with_gil(|py| Self {
             memory: self.memory.clone_ref(py),
-            ty: self.ty.clone(),
+            ty: self.ty,
         })
     }
 }
