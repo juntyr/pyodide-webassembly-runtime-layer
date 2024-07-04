@@ -112,14 +112,14 @@ impl WasmFeatureExtension {
     pub fn check_if_supported(self, py: Python) -> Result<bool, anyhow::Error> {
         let canary = self.canary_bytes();
 
-        if let Self::MultiMemory = self {
+        if matches!(self, Self::MultiMemory) {
             Self::try_create_wasm_module_from_bytes(py, canary)
         } else {
             Self::try_validate_wasm_bytes(py, canary)
         }
     }
 
-    fn canary_bytes(self) -> &'static [u8] {
+    const fn canary_bytes(self) -> &'static [u8] {
         // The WASM feature detection mechanism and the detector WASM modules
         // are adapted from the Google Chrome Team's `wasm-feature-detect`
         // repository, which is released under the Apache-2.0 License.
