@@ -110,54 +110,44 @@ impl WasmFeatureExtension {
     }
 
     pub fn check_if_supported(self, py: Python) -> Result<bool, anyhow::Error> {
+        let canary = self.canary_bytes();
+
+        if let Self::MultiMemory = self {
+            Self::try_create_wasm_module_from_bytes(py, canary)
+        } else {
+            Self::try_validate_wasm_bytes(py, canary)
+        }
+    }
+
+    fn canary_bytes(self) -> &'static [u8] {
         // The WASM feature detection mechanism and the detector WASM modules
         // are adapted from the Google Chrome Team's `wasm-feature-detect`
         // repository, which is released under the Apache-2.0 License.
         // https://github.com/GoogleChromeLabs/wasm-feature-detect/tree/5e491be2d5808948a0706234ab1475c88cedc069/src/detectors
         //
         // The detector modules have been compiled from *.wat to *.wasm
-        // using wabt.
+        // using wabt's wat2wasm.
         match self {
-            Self::BulkMemory => {
-                Self::try_validate_wasm_bytes(py, include_bytes!("bulk-memory.wasm"))
-            },
-            Self::Exceptions => {
-                Self::try_validate_wasm_bytes(py, include_bytes!("exceptions.wasm"))
-            },
-            Self::ExtendedConst => {
-                Self::try_validate_wasm_bytes(py, include_bytes!("extended-const.wasm"))
-            },
-            Self::GC => Self::try_validate_wasm_bytes(py, include_bytes!("gc.wasm")),
-            Self::Memory64 => Self::try_validate_wasm_bytes(py, include_bytes!("memory64.wasm")),
-            Self::MultiMemory => {
-                Self::try_create_wasm_module_from_bytes(py, include_bytes!("multi-memory.wasm"))
-            },
-            Self::MultiValue => {
-                Self::try_validate_wasm_bytes(py, include_bytes!("multi-value.wasm"))
-            },
-            Self::MutableGlobal => {
-                Self::try_validate_wasm_bytes(py, include_bytes!("mutable-global.wasm"))
-            },
-            Self::ReferenceTypes => {
-                Self::try_validate_wasm_bytes(py, include_bytes!("reference-types.wasm"))
-            },
-            Self::RelaxedSimd => {
-                Self::try_validate_wasm_bytes(py, include_bytes!("relaxed-simd.wasm"))
-            },
-            Self::SaturatingFloatToInt => {
-                Self::try_validate_wasm_bytes(py, include_bytes!("saturating-float-to-int.wasm"))
-            },
-            Self::SignExtension => {
-                Self::try_validate_wasm_bytes(py, include_bytes!("sign-extension.wasm"))
-            },
-            Self::Simd => Self::try_validate_wasm_bytes(py, include_bytes!("simd.wasm")),
-            Self::TailCall => Self::try_validate_wasm_bytes(py, include_bytes!("tail-call.wasm")),
-            Self::Threads => Self::try_validate_wasm_bytes(py, include_bytes!("threads.wasm")),
+            Self::BulkMemory => include_bytes!("bulk-memory.wasm"),
+            Self::Exceptions => include_bytes!("exceptions.wasm"),
+            Self::ExtendedConst => include_bytes!("extended-const.wasm"),
+            Self::GC => include_bytes!("gc.wasm"),
+            Self::Memory64 => include_bytes!("memory64.wasm"),
+            Self::MultiMemory => include_bytes!("multi-memory.wasm"),
+            Self::MultiValue => include_bytes!("multi-value.wasm"),
+            Self::MutableGlobal => include_bytes!("mutable-global.wasm"),
+            Self::ReferenceTypes => include_bytes!("reference-types.wasm"),
+            Self::RelaxedSimd => include_bytes!("relaxed-simd.wasm"),
+            Self::SaturatingFloatToInt => include_bytes!("saturating-float-to-int.wasm"),
+            Self::SignExtension => include_bytes!("sign-extension.wasm"),
+            Self::Simd => include_bytes!("simd.wasm"),
+            Self::TailCall => include_bytes!("tail-call.wasm"),
+            Self::Threads => include_bytes!("threads.wasm"),
         }
     }
 
     fn requires_features(bytes: &[u8], features: wasmparser::WasmFeatures) -> bool {
-        wasmparser::Validator::new_with_features(features)
+        wasmparser::Validator::new_with_features(!features)
             .validate_all(bytes)
             .is_err()
     }
@@ -227,4 +217,30 @@ fn web_assembly_module(py: Python) -> Result<&Bound<PyAny>, PyErr> {
                 .unbind())
         })
         .map(|x| x.bind(py))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn required_features() {
+        for feature in FlagSet::<WasmFeatureExtension>::full() {
+            let required = WasmFeatureExtension::required(feature.canary_bytes());
+
+            let check = match feature {
+                // the relaxed-simd feature depends on simd
+                WasmFeatureExtension::RelaxedSimd => {
+                    FlagSet::from(feature) | WasmFeatureExtension::Simd
+                },
+                // otherwise, every feature should only require itself
+                _ => FlagSet::from(feature),
+            };
+
+            assert_eq!(
+                required, check,
+                "{feature} should only require {check:?}, but needs {required:?}"
+            );
+        }
+    }
 }
