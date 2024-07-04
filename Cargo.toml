@@ -15,6 +15,10 @@ description = """
 WASM runtime compatibility interface implementation for the webbrowser
 WebAssembly runtime, exposed through Pyodide.
 """
+exclude = [
+    "/.github", "/.gitignore",
+    "/src/features/*.wat", "/src/features/wat2wasm.sh",
+]
 
 [dependencies]
 anyhow = { version = "1.0", default-features = false, features = ["std"] }
