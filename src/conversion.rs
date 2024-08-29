@@ -1,4 +1,4 @@
-use pyo3::{intern, prelude::*, sync::GILOnceCell, types::IntoPyDict};
+use pyo3::{exceptions::PyRuntimeError, intern, prelude::*, sync::GILOnceCell, types::IntoPyDict};
 use wasm_runtime_layer::{
     backend::{Extern, Value},
     ValueType,
@@ -51,7 +51,7 @@ pub trait ValueExt: Sized {
     fn ty(&self) -> ValueType;
 
     /// Convert the [`PyAny`] value into a Value of the supplied type
-    fn from_py_typed(value: Bound<PyAny>, ty: ValueType) -> anyhow::Result<Self>;
+    fn from_py_typed(value: Bound<PyAny>, ty: ValueType) -> Result<Self, PyErr>;
 }
 
 impl ValueExt for Value<Engine> {
@@ -67,7 +67,7 @@ impl ValueExt for Value<Engine> {
         }
     }
 
-    fn from_py_typed(value: Bound<PyAny>, ty: ValueType) -> anyhow::Result<Self> {
+    fn from_py_typed(value: Bound<PyAny>, ty: ValueType) -> Result<Self, PyErr> {
         match ty {
             ValueType::I32 => Ok(Self::I32(value.extract()?)),
             // Try to unwrap a number, BigInt, or Object-wrapped BigInt
@@ -87,10 +87,10 @@ impl ValueExt for Value<Engine> {
                 if value.is_none() {
                     Ok(Self::FuncRef(None))
                 } else {
-                    anyhow::bail!(
+                    Err(PyRuntimeError::new_err(
                         "conversion to a function outside of a module export is not permitted as \
-                         its type signature is unknown"
-                    )
+                         its type signature is unknown",
+                    ))
                 }
             },
         }
