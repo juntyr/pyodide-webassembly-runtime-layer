@@ -24,7 +24,8 @@ exclude = [
 anyhow = { version = "1.0", default-features = false, features = ["std"] }
 flagset = { version = "0.4.5", default-features = false, features = ["std"] }
 fxhash = { version = "0.2", default-features = false }
-pyo3 = { version = "0.21", default-features = false, features = ["anyhow", "macros"] }
+pyo3 = { version = "0.21", default-features = false, features = ["macros"] }
+pyo3-error = { git = "https://github.com/juntyr/pyo3-error.git", rev = "e6b2b88", version = "0.1", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 wasmparser = { version = "0.207", default-features = false, features = ["std", "validate"] }
 wasm_runtime_layer = { version = "0.4", default-features = false }

@@ -208,6 +208,7 @@ pub struct StoreContextMut<'a, T: 'a> {
 }
 
 impl<'a, T: 'a> StoreContextMut<'a, T> {
+    #[allow(clippy::needless_pass_by_ref_mut)]
     /// Returns a weak proof for having a mutable borrow of the inner store
     ///
     /// Since the inner store provides no API surface, this weak pointer can

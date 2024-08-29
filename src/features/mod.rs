@@ -109,7 +109,7 @@ impl WasmFeatureExtension {
         })
     }
 
-    pub fn check_if_supported(self, py: Python) -> Result<bool, anyhow::Error> {
+    pub fn check_if_supported(self, py: Python) -> Result<bool, PyErr> {
         let canary = self.canary_bytes();
 
         if matches!(self, Self::MultiMemory) {
@@ -152,13 +152,13 @@ impl WasmFeatureExtension {
             .is_err()
     }
 
-    fn try_validate_wasm_bytes(py: Python, bytes: &[u8]) -> anyhow::Result<bool> {
+    fn try_validate_wasm_bytes(py: Python, bytes: &[u8]) -> Result<bool, PyErr> {
         let buffer = js_uint8_array(py)?.call_method1(intern!(py, "new"), (bytes,))?;
         let valid = web_assembly_validate(py)?.call1((buffer,))?.extract()?;
         Ok(valid)
     }
 
-    fn try_create_wasm_module_from_bytes(py: Python, bytes: &[u8]) -> anyhow::Result<bool> {
+    fn try_create_wasm_module_from_bytes(py: Python, bytes: &[u8]) -> Result<bool, PyErr> {
         let buffer = js_uint8_array(py)?.call_method1(intern!(py, "new"), (bytes,))?;
         let module = web_assembly_module(py)?.call_method1(intern!(py, "new"), (buffer,));
         Ok(module.is_ok())

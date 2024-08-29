@@ -104,7 +104,7 @@ impl Global {
         ty: GlobalType,
     ) -> anyhow::Result<Self> {
         if !instanceof(&global, web_assembly_global(global.py())?)? {
-            anyhow::bail!("expected WebAssembly.Global but found {global}",);
+            anyhow::bail!("expected WebAssembly.Global but found {global}");
         }
 
         #[cfg(feature = "tracing")]
