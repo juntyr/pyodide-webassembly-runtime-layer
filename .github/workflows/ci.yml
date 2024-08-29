@@ -117,7 +117,7 @@ jobs:
           cargo hack clippy --all \
             --feature-powerset --keep-going \
             -- -D warnings
-      
+
       - name: Check the code style powerset
         if: ${{ matrix.rust != 'stable' }}
         run: |
