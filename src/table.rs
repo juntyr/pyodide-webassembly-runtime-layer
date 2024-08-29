@@ -149,7 +149,7 @@ impl Table {
     /// Creates a new table from a Python value
     pub(crate) fn from_exported_table(table: Bound<PyAny>, ty: TableType) -> anyhow::Result<Self> {
         if !instanceof(&table, web_assembly_table(table.py())?)? {
-            anyhow::bail!("expected WebAssembly.Table but found {}", table);
+            anyhow::bail!("expected WebAssembly.Table but found {table}");
         }
 
         #[cfg(feature = "tracing")]

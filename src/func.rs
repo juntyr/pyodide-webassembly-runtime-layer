@@ -4,7 +4,8 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use pyo3::{prelude::*, types::PyTuple, PyTypeInfo};
+use pyo3::{exceptions::PyRuntimeError, prelude::*, types::PyTuple, PyTypeInfo};
+use pyo3_error::PyErrChain;
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmFunc, WasmStoreContext},
     FuncType,
@@ -65,9 +66,9 @@ impl WasmFunc<Engine> for Func {
                 let py = args.py();
 
                 let Some(mut strong_store) = Weak::upgrade(&weak_store) else {
-                    return Err(PyErr::from(anyhow::anyhow!(
-                        "host func called after free of its associated store"
-                    )));
+                    return Err(PyRuntimeError::new_err(
+                        "host func called after free of its associated store",
+                    ));
                 };
 
                 // Safety:
@@ -98,7 +99,7 @@ impl WasmFunc<Engine> for Func {
                     Err(err) => {
                         #[cfg(feature = "tracing")]
                         tracing::error!("{err:?}");
-                        return Err(err.into());
+                        return Err(PyErrChain::pyerr_from_err(py, err));
                     },
                 }
 
@@ -232,9 +233,9 @@ impl PyHostFunc {
         let _span = tracing::debug_span!("call_trampoline", ?self.ty, args = %args).entered();
 
         let Some(func) = self.func.upgrade() else {
-            return Err(PyErr::from(anyhow::anyhow!(
-                "weak host func called after free of its associated store"
-            )));
+            return Err(PyRuntimeError::new_err(
+                "weak host func called after free of its associated store",
+            ));
         };
 
         func(args)
