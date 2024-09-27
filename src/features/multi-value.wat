@@ -1,3 +1,5 @@
+;; wasm-as: --enable-multivalue
+
 ;; Name: Multi-value
 ;; Proposal: https://github.com/WebAssembly/multi-value
 ;; Features: multi-value

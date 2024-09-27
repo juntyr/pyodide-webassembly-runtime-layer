@@ -1,3 +1,5 @@
+;; wasm-as: --enable-mutable-globals
+
 ;; Name: Mutable Global
 ;; Proposal: https://github.com/WebAssembly/mutable-global
 ;; Features: mutable-global

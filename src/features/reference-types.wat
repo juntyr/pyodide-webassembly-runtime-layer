@@ -1,3 +1,5 @@
+;; wasm-as: --enable-reference-types
+
 ;; Name: Reference Types
 ;; Proposal: https://github.com/WebAssembly/reference-types
 ;; Features: reference-types
