@@ -137,8 +137,8 @@ impl ParsedModule {
                         let subtype = subtypes.next();
 
                         let ty = match (subtype, subtypes.next()) {
-                            (Some(subtype), None) => match &subtype.composite_type.inner {
-                                wasmparser::CompositeInnerType::Func(func_type) => FuncType::new(
+                            (Some(subtype), None) => match &subtype.composite_type {
+                                wasmparser::CompositeType::Func(func_type) => FuncType::new(
                                     func_type
                                         .params()
                                         .iter()

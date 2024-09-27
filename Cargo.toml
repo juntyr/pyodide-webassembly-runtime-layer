@@ -1,6 +1,6 @@
 [package]
 name = "pyodide-webassembly-runtime-layer"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 rust-version = "1.76"
 license = "MIT OR Apache-2.0"
@@ -27,7 +27,7 @@ fxhash = { version = "0.2", default-features = false }
 pyo3 = { version = "0.22", default-features = false, features = ["macros"] }
 pyo3-error = { version = "0.2", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
-wasmparser = { version = "0.217", default-features = false, features = ["std", "features", "validate"] }
+wasmparser = { version = "0.211", default-features = false, features = ["std", "validate"] }
 wasm_runtime_layer = { version = "0.4", default-features = false }
 wobbly = { version = "0.1", default-features = false, features = ["std"] }
 
