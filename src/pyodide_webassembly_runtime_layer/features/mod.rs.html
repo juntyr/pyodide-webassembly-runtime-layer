@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/features/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0-nightly (100fde524 2024-08-28)" data-channel="nightly" data-search-js="search-acd2e111c9cb27e3.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-cb0df477c2d67d00.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/features/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-42fa08075bb476ff.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.83.0-nightly (2bd1e894e 2024-09-26)" data-channel="nightly" data-search-js="search-e056c65ede92db13.js" data-settings-js="settings-805db61a62df4bd2.js" ><script src="../../../static.files/storage-1d39b6787ed640ff.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-54bc299d2a5e4e43.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-0111fcff984fae8f.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pyodide_webassembly_runtime_layer/features/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
+<a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -244,7 +245,32 @@
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{error::Error, fmt};
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{error::Error, fmt};
 
 <span class="kw">use </span>flagset::FlagSet;
 <span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>, sync::GILOnceCell};
@@ -255,6 +281,21 @@
 </span><span class="kw">pub struct </span>UnsupportedWasmFeatureExtensionError {
     <span class="kw">pub </span>required: FlagSet&lt;WasmFeatureExtension&gt;,
     <span class="kw">pub </span>supported: FlagSet&lt;WasmFeatureExtension&gt;,
+}
+
+<span class="kw">impl </span>UnsupportedWasmFeatureExtensionError {
+    <span class="kw">pub fn </span>check_support(py: Python, bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>&gt;, PyErr&gt; {
+        <span class="kw">let </span>err = <span class="self">Self </span>{
+            required: WasmFeatureExtension::required(bytes),
+            supported: <span class="kw-2">*</span>WasmFeatureExtension::supported(py)<span class="question-mark">?</span>,
+        };
+
+        <span class="kw">if </span>(err.required &amp; (!err.supported)).is_empty() {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(()));
+        }
+
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err))
+    }
 }
 
 <span class="kw">impl </span>fmt::Display <span class="kw">for </span>UnsupportedWasmFeatureExtensionError {
@@ -287,6 +328,7 @@
         BulkMemory,
         Exceptions,
         ExtendedConst,
+        FunctionReferences,
         GC,
         Memory64,
         MultiMemory,
@@ -308,6 +350,7 @@
             WasmFeatureExtension::BulkMemory =&gt; <span class="self">Self</span>::BULK_MEMORY,
             WasmFeatureExtension::Exceptions =&gt; <span class="self">Self</span>::EXCEPTIONS,
             WasmFeatureExtension::ExtendedConst =&gt; <span class="self">Self</span>::EXTENDED_CONST,
+            WasmFeatureExtension::FunctionReferences =&gt; <span class="self">Self</span>::FUNCTION_REFERENCES,
             WasmFeatureExtension::GC =&gt; <span class="self">Self</span>::GC,
             WasmFeatureExtension::Memory64 =&gt; <span class="self">Self</span>::MEMORY64,
             WasmFeatureExtension::MultiMemory =&gt; <span class="self">Self</span>::MULTI_MEMORY,
@@ -369,14 +412,15 @@
         <span class="comment">// The WASM feature detection mechanism and the detector WASM modules
         // are adapted from the Google Chrome Team's `wasm-feature-detect`
         // repository, which is released under the Apache-2.0 License.
-        // https://github.com/GoogleChromeLabs/wasm-feature-detect/tree/5e491be2d5808948a0706234ab1475c88cedc069/src/detectors
+        // https://github.com/GoogleChromeLabs/wasm-feature-detect/tree/8bfe6691b0749b53d605f3220f15e68751c4b5b6/src/detectors
         //
         // The detector modules have been compiled from *.wat to *.wasm
-        // using wabt's wat2wasm.
+        // using binaryen's wasm-as.
         </span><span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::BulkMemory =&gt; <span class="macro">include_bytes!</span>(<span class="string">"bulk-memory.wasm"</span>),
             <span class="self">Self</span>::Exceptions =&gt; <span class="macro">include_bytes!</span>(<span class="string">"exceptions.wasm"</span>),
             <span class="self">Self</span>::ExtendedConst =&gt; <span class="macro">include_bytes!</span>(<span class="string">"extended-const.wasm"</span>),
+            <span class="self">Self</span>::FunctionReferences =&gt; <span class="macro">include_bytes!</span>(<span class="string">"function-references.wasm"</span>),
             <span class="self">Self</span>::GC =&gt; <span class="macro">include_bytes!</span>(<span class="string">"gc.wasm"</span>),
             <span class="self">Self</span>::Memory64 =&gt; <span class="macro">include_bytes!</span>(<span class="string">"memory64.wasm"</span>),
             <span class="self">Self</span>::MultiMemory =&gt; <span class="macro">include_bytes!</span>(<span class="string">"multi-memory.wasm"</span>),
@@ -420,6 +464,7 @@
                 <span class="self">Self</span>::BulkMemory =&gt; <span class="string">"bulk-memory"</span>,
                 <span class="self">Self</span>::Exceptions =&gt; <span class="string">"exceptions"</span>,
                 <span class="self">Self</span>::ExtendedConst =&gt; <span class="string">"extended-const"</span>,
+                <span class="self">Self</span>::FunctionReferences =&gt; <span class="string">"function-references"</span>,
                 <span class="self">Self</span>::GC =&gt; <span class="string">"gc"</span>,
                 <span class="self">Self</span>::Memory64 =&gt; <span class="string">"memory64"</span>,
                 <span class="self">Self</span>::MultiMemory =&gt; <span class="string">"multi-memory"</span>,
@@ -475,6 +520,13 @@
             <span class="kw">let </span>required = WasmFeatureExtension::required(feature.canary_bytes());
 
             <span class="kw">let </span>check = <span class="kw">match </span>feature {
+                <span class="comment">// the function-references feature depends on reference-types
+                // FIXME: remove the dependency on bulk-memory
+                </span>WasmFeatureExtension::FunctionReferences =&gt; {
+                    FlagSet::from(feature)
+                        | WasmFeatureExtension::ReferenceTypes
+                        | WasmFeatureExtension::BulkMemory
+                },
                 <span class="comment">// the relaxed-simd feature depends on simd
                 </span>WasmFeatureExtension::RelaxedSimd =&gt; {
                     FlagSet::from(feature) | WasmFeatureExtension::Simd
