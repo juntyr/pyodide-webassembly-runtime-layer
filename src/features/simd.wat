@@ -1,3 +1,5 @@
+;; wasm-as: --enable-simd
+
 ;; Name: Fixed-Width SIMD
 ;; Proposal: https://github.com/webassembly/simd
 ;; Features: simd

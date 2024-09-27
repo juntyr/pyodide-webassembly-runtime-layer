@@ -1,3 +1,5 @@
+;; wasm-as: --enable-threads
+
 ;; Name: Threads
 ;; Proposal: https://github.com/webassembly/threads
 ;; Features: threads

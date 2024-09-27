@@ -1,13 +1,19 @@
+;; wasm-as: --enable-exception-handling
+
 ;; Name: Exception handling
 ;; Proposal: https://github.com/WebAssembly/exception-handling
 ;; Features: exceptions
 
 ;; The exceptions canary is different from wasm-feature-detect,
-;;  which uses the now deprecated try instruction.
+;;  which uses instructions from the reference-types proposal.
 
 (module
   (tag)
   (func
-    throw 0
+    block
+      try_table (catch 0 0)
+        unreachable
+      end
+    end
   )
 )

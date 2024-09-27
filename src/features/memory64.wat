@@ -1,3 +1,5 @@
+;; wasm-as: --enable-memory64
+
 ;; Name: Memory64
 ;; Proposal: https://github.com/WebAssembly/memory64
 ;; Features: memory64

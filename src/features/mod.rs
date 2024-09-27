@@ -11,6 +11,19 @@ pub struct UnsupportedWasmFeatureExtensionError {
     pub supported: FlagSet<WasmFeatureExtension>,
 }
 
+impl UnsupportedWasmFeatureExtensionError {
+    pub fn check_support(py: Python, bytes: &[u8]) -> Result<Result<(), Self>, PyErr> {
+        let err = Self {
+            required: WasmFeatureExtension::required(bytes),
+            supported: *WasmFeatureExtension::supported(py)?,
+        };
+        if (err.required & (!err.supported)).is_empty() {
+            return Ok(Ok(()));
+        }
+        Ok(Err(err))
+    }
+}
+
 impl fmt::Display for UnsupportedWasmFeatureExtensionError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         writeln!(
@@ -41,6 +54,7 @@ flagset::flags! {
         BulkMemory,
         Exceptions,
         ExtendedConst,
+        FunctionReferences,
         GC,
         Memory64,
         MultiMemory,
@@ -101,14 +115,15 @@ impl WasmFeatureExtension {
         // The WASM feature detection mechanism and the detector WASM modules
         // are adapted from the Google Chrome Team's `wasm-feature-detect`
         // repository, which is released under the Apache-2.0 License.
-        // https://github.com/GoogleChromeLabs/wasm-feature-detect/tree/5e491be2d5808948a0706234ab1475c88cedc069/src/detectors
+        // https://github.com/GoogleChromeLabs/wasm-feature-detect/tree/8bfe6691b0749b53d605f3220f15e68751c4b5b6/src/detectors
         //
         // The detector modules have been compiled from *.wat to *.wasm
-        // using wabt's wat2wasm.
+        // using binaryen's wasm-as.
         match self {
             Self::BulkMemory => include_bytes!("bulk-memory.wasm"),
             Self::Exceptions => include_bytes!("exceptions.wasm"),
             Self::ExtendedConst => include_bytes!("extended-const.wasm"),
+            Self::FunctionReferences => include_bytes!("function-references.wasm"),
             Self::GC => include_bytes!("gc.wasm"),
             Self::Memory64 => include_bytes!("memory64.wasm"),
             Self::MultiMemory => include_bytes!("multi-memory.wasm"),
@@ -136,6 +151,10 @@ impl WasmFeatureExtension {
             },
             Self::ExtendedConst => wasmparser::WasmFeatures {
                 extended_const: false,
+                ..wasmparser::WasmFeatures::all()
+            },
+            Self::FunctionReferences => wasmparser::WasmFeatures {
+                function_references: false,
                 ..wasmparser::WasmFeatures::all()
             },
             Self::GC => wasmparser::WasmFeatures {
@@ -217,6 +236,7 @@ impl fmt::Display for WasmFeatureExtension {
                 Self::BulkMemory => "bulk-memory",
                 Self::Exceptions => "exceptions",
                 Self::ExtendedConst => "extended-const",
+                Self::FunctionReferences => "function-references",
                 Self::GC => "gc",
                 Self::Memory64 => "memory64",
                 Self::MultiMemory => "multi-memory",
@@ -268,6 +288,13 @@ mod tests {
             let required = WasmFeatureExtension::required(feature.canary_bytes());
 
             let check = match feature {
+                // the function-references feature depends on reference-types
+                // FIXME: remove the dependency on bulk-memory
+                WasmFeatureExtension::FunctionReferences => {
+                    FlagSet::from(feature)
+                        | WasmFeatureExtension::ReferenceTypes
+                        | WasmFeatureExtension::BulkMemory
+                },
                 // the relaxed-simd feature depends on simd
                 WasmFeatureExtension::RelaxedSimd => {
                     FlagSet::from(feature) | WasmFeatureExtension::Simd

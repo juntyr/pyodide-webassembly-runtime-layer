@@ -1,3 +1,5 @@
+;; wasm-as: --enable-bulk-memory
+
 ;; Name: Bulk memory operations
 ;; Proposal: https://github.com/webassembly/bulk-memory-operations
 ;; Features: bulk-memory-operations
