@@ -1,3 +1,5 @@
+;; wasm-as: --enable-multimemory
+
 ;; Name: Multi Memory
 ;; Proposal: https://github.com/WebAssembly/multi-memory
 ;; Features: multi-memory

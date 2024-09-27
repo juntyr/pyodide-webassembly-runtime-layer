@@ -8,11 +8,7 @@ use wasm_runtime_layer::{
     TableType, ValueType,
 };
 
-use crate::{
-    conversion::js_uint8_array,
-    features::{UnsupportedWasmFeatureExtensionError, WasmFeatureExtension},
-    Engine,
-};
+use crate::{conversion::js_uint8_array, features::UnsupportedWasmFeatureExtensionError, Engine};
 
 #[derive(Debug)]
 /// A WASM module.
@@ -52,12 +48,18 @@ impl WasmModule<Engine> for Module {
             let buffer =
                 js_uint8_array(py)?.call_method1(intern!(py, "new"), (bytes.as_slice(),))?;
 
-            let Ok(module) = web_assembly_module(py)?.call_method1(intern!(py, "new"), (buffer,))
-            else {
-                anyhow::bail!(UnsupportedWasmFeatureExtensionError {
-                    required: WasmFeatureExtension::required(&bytes),
-                    supported: *Python::with_gil(WasmFeatureExtension::supported)?,
-                });
+            let module = match web_assembly_module(py)?.call_method1(intern!(py, "new"), (buffer,))
+            {
+                Ok(module) => module,
+                // check if the error comes from missing feature support
+                // - if so, report the more informative unsupported feature error instead
+                // - if not, bubble up the error that made module instantiation fail
+                Err(err) => match Python::with_gil(|py| {
+                    UnsupportedWasmFeatureExtensionError::check_support(py, &bytes)
+                })? {
+                    Ok(()) => anyhow::bail!(err),
+                    Err(unsupported) => anyhow::bail!(unsupported),
+                },
             };
 
             let parsed = Arc::new(parsed);
@@ -135,8 +137,8 @@ impl ParsedModule {
                         let subtype = subtypes.next();
 
                         let ty = match (subtype, subtypes.next()) {
-                            (Some(subtype), None) => match &subtype.composite_type {
-                                wasmparser::CompositeType::Func(func_type) => FuncType::new(
+                            (Some(subtype), None) => match &subtype.composite_type.inner {
+                                wasmparser::CompositeInnerType::Func(func_type) => FuncType::new(
                                     func_type
                                         .params()
                                         .iter()

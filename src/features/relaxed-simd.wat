@@ -1,3 +1,5 @@
+;; wasm-as: --enable-relaxed-simd --enable-simd
+
 ;; Name: Relaxed SIMD
 ;; Proposal: https://github.com/webassembly/relaxed-simd
 ;; Features: relaxed-simd
