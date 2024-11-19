@@ -48,8 +48,7 @@ impl WasmGlobal<Engine> for Global {
 
             let value = value.to_py(py);
 
-            let global =
-                web_assembly_global(py)?.call_method1(intern!(py, "new"), (desc, value))?;
+            let global = web_assembly_global_new(py)?.call1((desc, value))?;
 
             Ok(Self {
                 global: global.unbind(),
@@ -129,4 +128,9 @@ impl Global {
 fn web_assembly_global(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_GLOBAL: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
     WEB_ASSEMBLY_GLOBAL.import(py, "js.WebAssembly", "Global")
+}
+
+fn web_assembly_global_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_GLOBAL_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    WEB_ASSEMBLY_GLOBAL_NEW.import(py, "js.WebAssembly.Global", "new")
 }

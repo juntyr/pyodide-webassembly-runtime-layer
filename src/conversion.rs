@@ -1,3 +1,5 @@
+use std::convert::Infallible;
+
 use pyo3::{exceptions::PyRuntimeError, intern, prelude::*, sync::GILOnceCell, types::IntoPyDict};
 use wasm_runtime_layer::{
     backend::{Extern, Value},
@@ -14,26 +16,30 @@ pub trait ToPy {
 
 impl ToPy for Value<Engine> {
     fn to_py(&self, py: Python) -> Py<PyAny> {
+        fn into_pyobject_infallible<
+            'py,
+            T: IntoPyObject<'py, Output = Bound<'py, S>, Error = Infallible>,
+            S,
+        >(
+            py: Python<'py>,
+            x: T,
+        ) -> Py<PyAny> {
+            match x.into_pyobject(py) {
+                Ok(x) => x.into_any().unbind(),
+                Err(e) => match e {},
+            }
+        }
+
         #[cfg(feature = "tracing")]
         tracing::trace!(ty = ?self.ty(), "Value::to_py");
 
         match self {
-            Self::I32(v) => match v.into_pyobject(py) {
-                Ok(v) => v.into_any().unbind(),
-                Err(e) => match e {},
-            },
+            Self::I32(v) => into_pyobject_infallible(py, v),
             // WebAssembly explicitly requires all i64's to be a BigInt
             // Pyodide auto-converts BigInts, so we wrap it in an Object
-            // Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
-            Self::I64(v) => i64_to_js_bigint(py, *v).unwrap().unbind(),
-            Self::F32(v) => match v.into_pyobject(py) {
-                Ok(v) => v.into_any().unbind(),
-                Err(e) => match e {},
-            },
-            Self::F64(v) => match v.into_pyobject(py) {
-                Ok(v) => v.into_any().unbind(),
-                Err(e) => match e {},
-            },
+            Self::I64(v) => i64_to_js_bigint(py, *v).unbind(),
+            Self::F32(v) => into_pyobject_infallible(py, v),
+            Self::F64(v) => into_pyobject_infallible(py, v),
             Self::FuncRef(None) | Self::ExternRef(None) => py.None(),
             Self::FuncRef(Some(func)) => func.to_py(py),
             Self::ExternRef(Some(r#ref)) => r#ref.to_py(py),
@@ -126,7 +132,7 @@ impl ValueTypeExt for ValueType {
     }
 }
 
-fn i64_to_js_bigint(py: Python, v: i64) -> Result<Bound<PyAny>, PyErr> {
+fn i64_to_js_bigint(py: Python, v: i64) -> Bound<PyAny> {
     fn object_wrapped_bigint(py: Python) -> Result<&Bound<PyAny>, PyErr> {
         static OBJECT_WRAPPED_BIGINT: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
 
@@ -145,7 +151,10 @@ fn i64_to_js_bigint(py: Python, v: i64) -> Result<Bound<PyAny>, PyErr> {
             .map(|x| x.bind(py))
     }
 
-    object_wrapped_bigint(py)?.call1((v,))
+    let bigint = (|| object_wrapped_bigint(py)?.call1((v,)))();
+
+    // Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
+    bigint.unwrap()
 }
 
 fn try_i64_from_js_bigint(v: Bound<PyAny>) -> Result<i64, PyErr> {

@@ -43,7 +43,7 @@ impl WasmMemory<Engine> for Memory {
                 desc.setattr(intern!(py, "maximum"), maximum)?;
             }
 
-            let memory = web_assembly_memory(py)?.call_method1(intern!(py, "new"), (desc,))?;
+            let memory = web_assembly_memory_new(py)?.call1((desc,))?;
 
             Ok(Self {
                 memory: memory.unbind(),
@@ -167,4 +167,9 @@ impl Memory {
 fn web_assembly_memory(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_MEMORY: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
     WEB_ASSEMBLY_MEMORY.import(py, "js.WebAssembly", "Memory")
+}
+
+fn web_assembly_memory_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_MEMORY_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    WEB_ASSEMBLY_MEMORY_NEW.import(py, "js.WebAssembly.Memory", "new")
 }

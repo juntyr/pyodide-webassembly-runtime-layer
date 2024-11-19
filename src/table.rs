@@ -50,7 +50,7 @@ impl WasmTable<Engine> for Table {
 
             let init = init.to_py(py);
 
-            let table = web_assembly_table(py)?.call_method1(intern!(py, "new"), (desc, init))?;
+            let table = web_assembly_table_new(py)?.call1((desc, init))?;
 
             Ok(Self {
                 table: table.unbind(),
@@ -170,4 +170,9 @@ impl Table {
 fn web_assembly_table(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_TABLE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
     WEB_ASSEMBLY_TABLE.import(py, "js.WebAssembly", "Table")
+}
+
+fn web_assembly_table_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_TABLE_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    WEB_ASSEMBLY_TABLE_NEW.import(py, "js.WebAssembly.Table", "new")
 }
