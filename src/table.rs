@@ -169,14 +169,5 @@ impl Table {
 
 fn web_assembly_table(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_TABLE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-
-    WEB_ASSEMBLY_TABLE
-        .get_or_try_init(py, || {
-            Ok(py
-                .import_bound(intern!(py, "js"))?
-                .getattr(intern!(py, "WebAssembly"))?
-                .getattr(intern!(py, "Table"))?
-                .unbind())
-        })
-        .map(|x| x.bind(py))
+    WEB_ASSEMBLY_TABLE.import(py, "js.WebAssembly", "Table")
 }

@@ -46,8 +46,8 @@ impl WasmInstance<Engine> for Instance {
 
             let imports_object = create_imports_object(py, imports)?;
 
-            let instance = web_assembly_instance(py)?
-                .call_method1(intern!(py, "new"), (module.module(py), imports_object))?;
+            let instance =
+                web_assembly_instance_new(py)?.call1((module.module(py), imports_object))?;
 
             let exports = instance.getattr(intern!(py, "exports"))?;
             let exports = process_exports(&exports, module)?;
@@ -155,16 +155,7 @@ fn process_exports(
         .collect()
 }
 
-fn web_assembly_instance(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+fn web_assembly_instance_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_INSTANCE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-
-    WEB_ASSEMBLY_INSTANCE
-        .get_or_try_init(py, || {
-            Ok(py
-                .import_bound(intern!(py, "js"))?
-                .getattr(intern!(py, "WebAssembly"))?
-                .getattr(intern!(py, "Instance"))?
-                .unbind())
-        })
-        .map(|x| x.bind(py))
+    WEB_ASSEMBLY_INSTANCE.import(py, "js.WebAssembly.Instance", "new")
 }

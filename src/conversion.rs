@@ -18,13 +18,22 @@ impl ToPy for Value<Engine> {
         tracing::trace!(ty = ?self.ty(), "Value::to_py");
 
         match self {
-            Self::I32(v) => v.to_object(py),
+            Self::I32(v) => match v.into_pyobject(py) {
+                Ok(v) => v.into_any().unbind(),
+                Err(e) => match e {},
+            },
             // WebAssembly explicitly requires all i64's to be a BigInt
             // Pyodide auto-converts BigInts, so we wrap it in an Object
             // Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
             Self::I64(v) => i64_to_js_bigint(py, *v).unwrap().unbind(),
-            Self::F32(v) => v.to_object(py),
-            Self::F64(v) => v.to_object(py),
+            Self::F32(v) => match v.into_pyobject(py) {
+                Ok(v) => v.into_any().unbind(),
+                Err(e) => match e {},
+            },
+            Self::F64(v) => match v.into_pyobject(py) {
+                Ok(v) => v.into_any().unbind(),
+                Err(e) => match e {},
+            },
             Self::FuncRef(None) | Self::ExternRef(None) => py.None(),
             Self::FuncRef(Some(func)) => func.to_py(py),
             Self::ExternRef(Some(r#ref)) => r#ref.to_py(py),
@@ -124,7 +133,7 @@ fn i64_to_js_bigint(py: Python, v: i64) -> Result<Bound<PyAny>, PyErr> {
         OBJECT_WRAPPED_BIGINT
             .get_or_try_init(py, || {
                 Ok(py
-                    .import_bound(intern!(py, "pyodide"))?
+                    .import(intern!(py, "pyodide"))?
                     .getattr(intern!(py, "code"))?
                     .getattr(intern!(py, "run_js"))?
                     .call1((
@@ -142,32 +151,16 @@ fn i64_to_js_bigint(py: Python, v: i64) -> Result<Bound<PyAny>, PyErr> {
 fn try_i64_from_js_bigint(v: Bound<PyAny>) -> Result<i64, PyErr> {
     fn js_bigint(py: Python) -> Result<&Bound<PyAny>, PyErr> {
         static JS_BIG_INT: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-
-        JS_BIG_INT
-            .get_or_try_init(py, || {
-                Ok(py
-                    .import_bound(intern!(py, "js"))?
-                    .getattr(intern!(py, "BigInt"))?
-                    .unbind())
-            })
-            .map(|x| x.bind(py))
+        JS_BIG_INT.import(py, "js", "BigInt")
     }
 
     // First wrap inside a BigInt to force coersion, then try to convert into an i64
     js_bigint(v.py())?.call1((v,))?.extract()
 }
 
-pub fn js_uint8_array(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static JS_UINT8_ARRAY: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-
-    JS_UINT8_ARRAY
-        .get_or_try_init(py, || {
-            Ok(py
-                .import_bound(intern!(py, "js"))?
-                .getattr(intern!(py, "Uint8Array"))?
-                .unbind())
-        })
-        .map(|x| x.bind(py))
+pub fn js_uint8_array_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static JS_UINT8_ARRAY_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    JS_UINT8_ARRAY_NEW.import(py, "js.Uint8Array", "new")
 }
 
 /// Check if `object` is an instance of the JavaScript class with `constructor`.
@@ -178,7 +171,7 @@ pub fn instanceof(object: &Bound<PyAny>, constructor: &Bound<PyAny>) -> Result<b
         IS_INSTANCE_OF
             .get_or_try_init(py, || {
                 Ok(py
-                    .import_bound(intern!(py, "pyodide"))?
+                    .import(intern!(py, "pyodide"))?
                     .getattr(intern!(py, "code"))?
                     .getattr(intern!(py, "run_js"))?
                     .call1((
@@ -198,16 +191,7 @@ pub fn instanceof(object: &Bound<PyAny>, constructor: &Bound<PyAny>) -> Result<b
 pub fn create_js_object(py: Python) -> Result<Bound<PyAny>, PyErr> {
     fn js_object_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
         static JS_OBJECT_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-
-        JS_OBJECT_NEW
-            .get_or_try_init(py, || {
-                Ok(py
-                    .import_bound(intern!(py, "js"))?
-                    .getattr(intern!(py, "Object"))?
-                    .getattr(intern!(py, "new"))?
-                    .unbind())
-            })
-            .map(|x| x.bind(py))
+        JS_OBJECT_NEW.import(py, "js.Object", "new")
     }
 
     js_object_new(py)?.call0()
@@ -216,22 +200,13 @@ pub fn create_js_object(py: Python) -> Result<Bound<PyAny>, PyErr> {
 pub fn py_to_js_proxy<T>(object: Bound<T>) -> Result<Bound<PyAny>, PyErr> {
     fn to_js(py: Python) -> Result<&Bound<PyAny>, PyErr> {
         static TO_JS: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-
-        TO_JS
-            .get_or_try_init(py, || {
-                Ok(py
-                    .import_bound(intern!(py, "pyodide"))?
-                    .getattr(intern!(py, "ffi"))?
-                    .getattr(intern!(py, "to_js"))?
-                    .unbind())
-            })
-            .map(|x| x.bind(py))
+        TO_JS.import(py, "pyodide.ffi", "to_js")
     }
 
     let py = object.py();
 
     to_js(py)?.call(
         (object,),
-        Some(&[(intern!(py, "create_pyproxies"), true)].into_py_dict_bound(py)),
+        Some(&[(intern!(py, "create_pyproxies"), true)].into_py_dict(py)?),
     )
 }

@@ -128,14 +128,5 @@ impl Global {
 
 fn web_assembly_global(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_GLOBAL: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-
-    WEB_ASSEMBLY_GLOBAL
-        .get_or_try_init(py, || {
-            Ok(py
-                .import_bound(intern!(py, "js"))?
-                .getattr(intern!(py, "WebAssembly"))?
-                .getattr(intern!(py, "Global"))?
-                .unbind())
-        })
-        .map(|x| x.bind(py))
+    WEB_ASSEMBLY_GLOBAL.import(py, "js.WebAssembly", "Global")
 }
