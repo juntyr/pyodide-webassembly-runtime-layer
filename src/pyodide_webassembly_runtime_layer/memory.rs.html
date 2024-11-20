@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/memory.rs`."><title>memory.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-42fa08075bb476ff.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.83.0-nightly (2bd1e894e 2024-09-26)" data-channel="nightly" data-search-js="search-e056c65ede92db13.js" data-settings-js="settings-805db61a62df4bd2.js" ><script src="../../static.files/storage-1d39b6787ed640ff.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-54bc299d2a5e4e43.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-0111fcff984fae8f.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pyodide_webassembly_runtime_layer/</div>memory.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/memory.rs`."><title>memory.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-42caa33d.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.0-nightly (ee612c45f 2024-11-19)" data-channel="nightly" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="../../static.files/src-script-56102188.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pyodide_webassembly_runtime_layer/</div>memory.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
 <a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
@@ -173,20 +173,14 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a></pre></div><pre class="rust"><code><span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>, sync::GILOnceCell, types::PyBytes};
+<a href="#175" id="175">175</a></pre></div><pre class="rust"><code><span class="kw">use </span>pyo3::{intern, prelude::<span class="kw-2">*</span>, sync::GILOnceCell, types::PyBytes};
 <span class="kw">use </span>wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, WasmMemory},
     MemoryType,
 };
 
 <span class="kw">use crate</span>::{
-    conversion::{create_js_object, instanceof, js_uint8_array, ToPy},
+    conversion::{create_js_object, instanceof, js_uint8_array_new, ToPy},
     Engine,
 };
 
@@ -224,7 +218,7 @@
                 desc.setattr(<span class="macro">intern!</span>(py, <span class="string">"maximum"</span>), maximum)<span class="question-mark">?</span>;
             }
 
-            <span class="kw">let </span>memory = web_assembly_memory(py)<span class="question-mark">?</span>.call_method1(<span class="macro">intern!</span>(py, <span class="string">"new"</span>), (desc,))<span class="question-mark">?</span>;
+            <span class="kw">let </span>memory = web_assembly_memory_new(py)<span class="question-mark">?</span>.call1((desc,))<span class="question-mark">?</span>;
 
             <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
                 memory: memory.unbind(),
@@ -269,7 +263,7 @@
             <span class="kw">let </span>pages = u32::try_from(byte_len / PAGE_SIZE)<span class="question-mark">?</span>;
             <span class="prelude-val">Ok</span>(pages)
         })
-        .unwrap()
+        .expect(<span class="string">"Memory::current_pages should not fail"</span>)
     }
 
     <span class="kw">fn </span>read(
@@ -285,8 +279,7 @@
             </span><span class="macro">tracing::debug!</span>(memory = %memory, <span class="question-mark">?</span><span class="self">self</span>.ty, offset, len = buffer.len(), <span class="string">"Memory::read"</span>);
 
             <span class="kw">let </span>memory = memory.getattr(<span class="macro">intern!</span>(py, <span class="string">"buffer"</span>))<span class="question-mark">?</span>;
-            <span class="kw">let </span>memory = js_uint8_array(py)<span class="question-mark">?
-                </span>.call_method1(<span class="macro">intern!</span>(py, <span class="string">"new"</span>), (memory, offset, buffer.len()))<span class="question-mark">?</span>;
+            <span class="kw">let </span>memory = js_uint8_array_new(py)<span class="question-mark">?</span>.call1((memory, offset, buffer.len()))<span class="question-mark">?</span>;
 
             <span class="kw">let </span>bytes: Bound&lt;PyBytes&gt; = memory.call_method0(<span class="macro">intern!</span>(py, <span class="string">"to_bytes"</span>))<span class="question-mark">?</span>.extract()<span class="question-mark">?</span>;
             buffer.copy_from_slice(bytes.as_bytes());
@@ -308,8 +301,7 @@
             </span><span class="macro">tracing::debug!</span>(memory = %memory, <span class="question-mark">?</span><span class="self">self</span>.ty, offset, len = buffer.len(), <span class="string">"Memory::write"</span>);
 
             <span class="kw">let </span>memory = memory.getattr(<span class="macro">intern!</span>(py, <span class="string">"buffer"</span>))<span class="question-mark">?</span>;
-            <span class="kw">let </span>memory = js_uint8_array(py)<span class="question-mark">?
-                </span>.call_method1(<span class="macro">intern!</span>(py, <span class="string">"new"</span>), (memory, offset, buffer.len()))<span class="question-mark">?</span>;
+            <span class="kw">let </span>memory = js_uint8_array_new(py)<span class="question-mark">?</span>.call1((memory, offset, buffer.len()))<span class="question-mark">?</span>;
 
             memory.call_method1(<span class="macro">intern!</span>(py, <span class="string">"assign"</span>), (buffer,))<span class="question-mark">?</span>;
 
@@ -349,15 +341,11 @@
 
 <span class="kw">fn </span>web_assembly_memory(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Bound&lt;PyAny&gt;, PyErr&gt; {
     <span class="kw">static </span>WEB_ASSEMBLY_MEMORY: GILOnceCell&lt;Py&lt;PyAny&gt;&gt; = GILOnceCell::new();
+    WEB_ASSEMBLY_MEMORY.import(py, <span class="string">"js.WebAssembly"</span>, <span class="string">"Memory"</span>)
+}
 
-    WEB_ASSEMBLY_MEMORY
-        .get_or_try_init(py, || {
-            <span class="prelude-val">Ok</span>(py
-                .import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))<span class="question-mark">?
-                </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"WebAssembly"</span>))<span class="question-mark">?
-                </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"Memory"</span>))<span class="question-mark">?
-                </span>.unbind())
-        })
-        .map(|x| x.bind(py))
+<span class="kw">fn </span>web_assembly_memory_new(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Bound&lt;PyAny&gt;, PyErr&gt; {
+    <span class="kw">static </span>WEB_ASSEMBLY_MEMORY_NEW: GILOnceCell&lt;Py&lt;PyAny&gt;&gt; = GILOnceCell::new();
+    WEB_ASSEMBLY_MEMORY_NEW.import(py, <span class="string">"js.WebAssembly.Memory"</span>, <span class="string">"new"</span>)
 }
 </code></pre></div></section></main></body></html>

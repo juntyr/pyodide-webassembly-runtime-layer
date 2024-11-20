@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/conversion.rs`."><title>conversion.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-42fa08075bb476ff.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.83.0-nightly (2bd1e894e 2024-09-26)" data-channel="nightly" data-search-js="search-e056c65ede92db13.js" data-settings-js="settings-805db61a62df4bd2.js" ><script src="../../static.files/storage-1d39b6787ed640ff.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-54bc299d2a5e4e43.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-0111fcff984fae8f.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pyodide_webassembly_runtime_layer/</div>conversion.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/conversion.rs`."><title>conversion.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-42caa33d.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.0-nightly (ee612c45f 2024-11-19)" data-channel="nightly" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="../../static.files/src-script-56102188.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pyodide_webassembly_runtime_layer/</div>conversion.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
 <a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
@@ -218,24 +218,9 @@
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
 <a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a></pre></div><pre class="rust"><code><span class="kw">use </span>pyo3::{exceptions::PyRuntimeError, intern, prelude::<span class="kw-2">*</span>, sync::GILOnceCell, types::IntoPyDict};
+<a href="#220" id="220">220</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::convert::Infallible;
+
+<span class="kw">use </span>pyo3::{exceptions::PyRuntimeError, intern, prelude::<span class="kw-2">*</span>, sync::GILOnceCell, types::IntoPyDict};
 <span class="kw">use </span>wasm_runtime_layer::{
     backend::{Extern, Value},
     ValueType,
@@ -251,17 +236,30 @@
 
 <span class="kw">impl </span>ToPy <span class="kw">for </span>Value&lt;Engine&gt; {
     <span class="kw">fn </span>to_py(<span class="kw-2">&amp;</span><span class="self">self</span>, py: Python) -&gt; Py&lt;PyAny&gt; {
+        <span class="kw">fn </span>into_pyobject_infallible&lt;
+            <span class="lifetime">'py</span>,
+            T: IntoPyObject&lt;<span class="lifetime">'py</span>, Output = Bound&lt;<span class="lifetime">'py</span>, S&gt;, Error = Infallible&gt;,
+            S,
+        &gt;(
+            py: Python&lt;<span class="lifetime">'py</span>&gt;,
+            x: T,
+        ) -&gt; Py&lt;PyAny&gt; {
+            <span class="kw">match </span>x.into_pyobject(py) {
+                <span class="prelude-val">Ok</span>(x) =&gt; x.into_any().unbind(),
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">match </span>e {},
+            }
+        }
+
         <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
         </span><span class="macro">tracing::trace!</span>(ty = <span class="question-mark">?</span><span class="self">self</span>.ty(), <span class="string">"Value::to_py"</span>);
 
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::I32(v) =&gt; v.to_object(py),
+            <span class="self">Self</span>::I32(v) =&gt; into_pyobject_infallible(py, v),
             <span class="comment">// WebAssembly explicitly requires all i64's to be a BigInt
             // Pyodide auto-converts BigInts, so we wrap it in an Object
-            // Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
-            </span><span class="self">Self</span>::I64(v) =&gt; i64_to_js_bigint(py, <span class="kw-2">*</span>v).unwrap().unbind(),
-            <span class="self">Self</span>::F32(v) =&gt; v.to_object(py),
-            <span class="self">Self</span>::F64(v) =&gt; v.to_object(py),
+            </span><span class="self">Self</span>::I64(v) =&gt; i64_to_js_bigint(py, <span class="kw-2">*</span>v).unbind(),
+            <span class="self">Self</span>::F32(v) =&gt; into_pyobject_infallible(py, v),
+            <span class="self">Self</span>::F64(v) =&gt; into_pyobject_infallible(py, v),
             <span class="self">Self</span>::FuncRef(<span class="prelude-val">None</span>) | <span class="self">Self</span>::ExternRef(<span class="prelude-val">None</span>) =&gt; py.<span class="prelude-val">None</span>(),
             <span class="self">Self</span>::FuncRef(<span class="prelude-val">Some</span>(func)) =&gt; func.to_py(py),
             <span class="self">Self</span>::ExternRef(<span class="prelude-val">Some</span>(r#ref)) =&gt; r#ref.to_py(py),
@@ -354,14 +352,14 @@
     }
 }
 
-<span class="kw">fn </span>i64_to_js_bigint(py: Python, v: i64) -&gt; <span class="prelude-ty">Result</span>&lt;Bound&lt;PyAny&gt;, PyErr&gt; {
+<span class="kw">fn </span>i64_to_js_bigint(py: Python, v: i64) -&gt; Bound&lt;PyAny&gt; {
     <span class="kw">fn </span>object_wrapped_bigint(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Bound&lt;PyAny&gt;, PyErr&gt; {
         <span class="kw">static </span>OBJECT_WRAPPED_BIGINT: GILOnceCell&lt;Py&lt;PyAny&gt;&gt; = GILOnceCell::new();
 
         OBJECT_WRAPPED_BIGINT
             .get_or_try_init(py, || {
                 <span class="prelude-val">Ok</span>(py
-                    .import_bound(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))<span class="question-mark">?
+                    .import(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))<span class="question-mark">?
                     </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"code"</span>))<span class="question-mark">?
                     </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"run_js"</span>))<span class="question-mark">?
                     </span>.call1((
@@ -373,38 +371,24 @@
             .map(|x| x.bind(py))
     }
 
-    object_wrapped_bigint(py)<span class="question-mark">?</span>.call1((v,))
+    <span class="kw">let </span>bigint = (|| object_wrapped_bigint(py)<span class="question-mark">?</span>.call1((v,)))();
+
+    bigint.expect(<span class="string">"conversion from i64 to Object(BigInt(v)) should not fail"</span>)
 }
 
 <span class="kw">fn </span>try_i64_from_js_bigint(v: Bound&lt;PyAny&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;i64, PyErr&gt; {
     <span class="kw">fn </span>js_bigint(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Bound&lt;PyAny&gt;, PyErr&gt; {
         <span class="kw">static </span>JS_BIG_INT: GILOnceCell&lt;Py&lt;PyAny&gt;&gt; = GILOnceCell::new();
-
-        JS_BIG_INT
-            .get_or_try_init(py, || {
-                <span class="prelude-val">Ok</span>(py
-                    .import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))<span class="question-mark">?
-                    </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"BigInt"</span>))<span class="question-mark">?
-                    </span>.unbind())
-            })
-            .map(|x| x.bind(py))
+        JS_BIG_INT.import(py, <span class="string">"js"</span>, <span class="string">"BigInt"</span>)
     }
 
     <span class="comment">// First wrap inside a BigInt to force coersion, then try to convert into an i64
     </span>js_bigint(v.py())<span class="question-mark">?</span>.call1((v,))<span class="question-mark">?</span>.extract()
 }
 
-<span class="kw">pub fn </span>js_uint8_array(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Bound&lt;PyAny&gt;, PyErr&gt; {
-    <span class="kw">static </span>JS_UINT8_ARRAY: GILOnceCell&lt;Py&lt;PyAny&gt;&gt; = GILOnceCell::new();
-
-    JS_UINT8_ARRAY
-        .get_or_try_init(py, || {
-            <span class="prelude-val">Ok</span>(py
-                .import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))<span class="question-mark">?
-                </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"Uint8Array"</span>))<span class="question-mark">?
-                </span>.unbind())
-        })
-        .map(|x| x.bind(py))
+<span class="kw">pub fn </span>js_uint8_array_new(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Bound&lt;PyAny&gt;, PyErr&gt; {
+    <span class="kw">static </span>JS_UINT8_ARRAY_NEW: GILOnceCell&lt;Py&lt;PyAny&gt;&gt; = GILOnceCell::new();
+    JS_UINT8_ARRAY_NEW.import(py, <span class="string">"js.Uint8Array"</span>, <span class="string">"new"</span>)
 }
 
 <span class="doccomment">/// Check if `object` is an instance of the JavaScript class with `constructor`.
@@ -415,7 +399,7 @@
         IS_INSTANCE_OF
             .get_or_try_init(py, || {
                 <span class="prelude-val">Ok</span>(py
-                    .import_bound(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))<span class="question-mark">?
+                    .import(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))<span class="question-mark">?
                     </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"code"</span>))<span class="question-mark">?
                     </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"run_js"</span>))<span class="question-mark">?
                     </span>.call1((
@@ -435,16 +419,7 @@
 <span class="kw">pub fn </span>create_js_object(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;Bound&lt;PyAny&gt;, PyErr&gt; {
     <span class="kw">fn </span>js_object_new(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Bound&lt;PyAny&gt;, PyErr&gt; {
         <span class="kw">static </span>JS_OBJECT_NEW: GILOnceCell&lt;Py&lt;PyAny&gt;&gt; = GILOnceCell::new();
-
-        JS_OBJECT_NEW
-            .get_or_try_init(py, || {
-                <span class="prelude-val">Ok</span>(py
-                    .import_bound(<span class="macro">intern!</span>(py, <span class="string">"js"</span>))<span class="question-mark">?
-                    </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"Object"</span>))<span class="question-mark">?
-                    </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"new"</span>))<span class="question-mark">?
-                    </span>.unbind())
-            })
-            .map(|x| x.bind(py))
+        JS_OBJECT_NEW.import(py, <span class="string">"js.Object"</span>, <span class="string">"new"</span>)
     }
 
     js_object_new(py)<span class="question-mark">?</span>.call0()
@@ -453,23 +428,14 @@
 <span class="kw">pub fn </span>py_to_js_proxy&lt;T&gt;(object: Bound&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Bound&lt;PyAny&gt;, PyErr&gt; {
     <span class="kw">fn </span>to_js(py: Python) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>Bound&lt;PyAny&gt;, PyErr&gt; {
         <span class="kw">static </span>TO_JS: GILOnceCell&lt;Py&lt;PyAny&gt;&gt; = GILOnceCell::new();
-
-        TO_JS
-            .get_or_try_init(py, || {
-                <span class="prelude-val">Ok</span>(py
-                    .import_bound(<span class="macro">intern!</span>(py, <span class="string">"pyodide"</span>))<span class="question-mark">?
-                    </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"ffi"</span>))<span class="question-mark">?
-                    </span>.getattr(<span class="macro">intern!</span>(py, <span class="string">"to_js"</span>))<span class="question-mark">?
-                    </span>.unbind())
-            })
-            .map(|x| x.bind(py))
+        TO_JS.import(py, <span class="string">"pyodide.ffi"</span>, <span class="string">"to_js"</span>)
     }
 
     <span class="kw">let </span>py = object.py();
 
     to_js(py)<span class="question-mark">?</span>.call(
         (object,),
-        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[(<span class="macro">intern!</span>(py, <span class="string">"create_pyproxies"</span>), <span class="bool-val">true</span>)].into_py_dict_bound(py)),
+        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[(<span class="macro">intern!</span>(py, <span class="string">"create_pyproxies"</span>), <span class="bool-val">true</span>)].into_py_dict(py)<span class="question-mark">?</span>),
     )
 }
 </code></pre></div></section></main></body></html>
