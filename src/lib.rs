@@ -63,11 +63,11 @@
 //! [`wasm_runtime_layer`]: https://docs.rs/wasm_runtime_layer/0.4/
 //! [`WebAssembly`]: https://developer.mozilla.org/en-US/docs/WebAssembly
 //! [`Pyodide`]: https://pyodide.org/en/stable/
-//! [`js_wasm_runtime_layer`]: https://docs.rs/js_wasm_runtime_layer/0.4/
+//! [`js_wasm_runtime_layer`]: https://docs.rs/js_wasm_runtime_layer/
 //! [`js-sys`]: https://docs.rs/js-sys/
 //! [`wasm-bindgen`]: https://docs.rs/wasm-bindgen/
 //! [`js`]: https://pyodide.org/en/stable/usage/api/python-api.html
-//! [`PyO3`]: https://docs.rs/pyo3/0.22/
+//! [`PyO3`]: https://docs.rs/pyo3/0.23/
 //! [new-issue]: https://github.com/juntyr/pyodide-webassembly-runtime-layer/issues/new
 //! [`Func::new`]: https://docs.rs/wasm_runtime_layer/0.4/wasm_runtime_layer/struct.Func.html#method.new
 //! [`wobbly`]: https://docs.rs/wobbly/0.1/
