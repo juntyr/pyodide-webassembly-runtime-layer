@@ -106,7 +106,6 @@ impl WasmFunc<Engine> for Func {
                 let results = match results.as_slice() {
                     [] => py.None(),
                     [res] => res.to_py(py),
-                    // PyTuple::new must not fail on slice of Py<PyAny>
                     results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))?
                         .into_any()
                         .unbind(),
