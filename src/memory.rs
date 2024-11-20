@@ -5,7 +5,7 @@ use wasm_runtime_layer::{
 };
 
 use crate::{
-    conversion::{create_js_object, instanceof, js_uint8_array, ToPy},
+    conversion::{create_js_object, instanceof, js_uint8_array_new, ToPy},
     Engine,
 };
 
@@ -43,7 +43,7 @@ impl WasmMemory<Engine> for Memory {
                 desc.setattr(intern!(py, "maximum"), maximum)?;
             }
 
-            let memory = web_assembly_memory(py)?.call_method1(intern!(py, "new"), (desc,))?;
+            let memory = web_assembly_memory_new(py)?.call1((desc,))?;
 
             Ok(Self {
                 memory: memory.unbind(),
@@ -88,7 +88,7 @@ impl WasmMemory<Engine> for Memory {
             let pages = u32::try_from(byte_len / PAGE_SIZE)?;
             Ok(pages)
         })
-        .unwrap()
+        .expect("Memory::current_pages should not fail")
     }
 
     fn read(
@@ -104,8 +104,7 @@ impl WasmMemory<Engine> for Memory {
             tracing::debug!(memory = %memory, ?self.ty, offset, len = buffer.len(), "Memory::read");
 
             let memory = memory.getattr(intern!(py, "buffer"))?;
-            let memory = js_uint8_array(py)?
-                .call_method1(intern!(py, "new"), (memory, offset, buffer.len()))?;
+            let memory = js_uint8_array_new(py)?.call1((memory, offset, buffer.len()))?;
 
             let bytes: Bound<PyBytes> = memory.call_method0(intern!(py, "to_bytes"))?.extract()?;
             buffer.copy_from_slice(bytes.as_bytes());
@@ -127,8 +126,7 @@ impl WasmMemory<Engine> for Memory {
             tracing::debug!(memory = %memory, ?self.ty, offset, len = buffer.len(), "Memory::write");
 
             let memory = memory.getattr(intern!(py, "buffer"))?;
-            let memory = js_uint8_array(py)?
-                .call_method1(intern!(py, "new"), (memory, offset, buffer.len()))?;
+            let memory = js_uint8_array_new(py)?.call1((memory, offset, buffer.len()))?;
 
             memory.call_method1(intern!(py, "assign"), (buffer,))?;
 
@@ -168,14 +166,10 @@ impl Memory {
 
 fn web_assembly_memory(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_MEMORY: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    WEB_ASSEMBLY_MEMORY.import(py, "js.WebAssembly", "Memory")
+}
 
-    WEB_ASSEMBLY_MEMORY
-        .get_or_try_init(py, || {
-            Ok(py
-                .import_bound(intern!(py, "js"))?
-                .getattr(intern!(py, "WebAssembly"))?
-                .getattr(intern!(py, "Memory"))?
-                .unbind())
-        })
-        .map(|x| x.bind(py))
+fn web_assembly_memory_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_MEMORY_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    WEB_ASSEMBLY_MEMORY_NEW.import(py, "js.WebAssembly.Memory", "new")
 }

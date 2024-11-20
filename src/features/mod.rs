@@ -1,9 +1,9 @@
 use std::{error::Error, fmt};
 
 use flagset::FlagSet;
-use pyo3::{intern, prelude::*, sync::GILOnceCell};
+use pyo3::{prelude::*, sync::GILOnceCell};
 
-use crate::conversion::js_uint8_array;
+use crate::conversion::js_uint8_array_new;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UnsupportedWasmFeatureExtensionError {
@@ -171,14 +171,14 @@ impl WasmFeatureExtension {
     }
 
     fn try_validate_wasm_bytes(py: Python, bytes: &[u8]) -> Result<bool, PyErr> {
-        let buffer = js_uint8_array(py)?.call_method1(intern!(py, "new"), (bytes,))?;
+        let buffer = js_uint8_array_new(py)?.call1((bytes,))?;
         let valid = web_assembly_validate(py)?.call1((buffer,))?.extract()?;
         Ok(valid)
     }
 
     fn try_create_wasm_module_from_bytes(py: Python, bytes: &[u8]) -> Result<bool, PyErr> {
-        let buffer = js_uint8_array(py)?.call_method1(intern!(py, "new"), (bytes,))?;
-        let module = web_assembly_module(py)?.call_method1(intern!(py, "new"), (buffer,));
+        let buffer = js_uint8_array_new(py)?.call1((bytes,))?;
+        let module = web_assembly_module_new(py)?.call1((buffer,));
         Ok(module.is_ok())
     }
 }
@@ -212,30 +212,12 @@ impl fmt::Display for WasmFeatureExtension {
 
 fn web_assembly_validate(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_VALIDATE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-
-    WEB_ASSEMBLY_VALIDATE
-        .get_or_try_init(py, || {
-            Ok(py
-                .import_bound(intern!(py, "js"))?
-                .getattr(intern!(py, "WebAssembly"))?
-                .getattr(intern!(py, "validate"))?
-                .unbind())
-        })
-        .map(|x| x.bind(py))
+    WEB_ASSEMBLY_VALIDATE.import(py, "js.WebAssembly", "validate")
 }
 
-fn web_assembly_module(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+fn web_assembly_module_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_MODULE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-
-    WEB_ASSEMBLY_MODULE
-        .get_or_try_init(py, || {
-            Ok(py
-                .import_bound(intern!(py, "js"))?
-                .getattr(intern!(py, "WebAssembly"))?
-                .getattr(intern!(py, "Module"))?
-                .unbind())
-        })
-        .map(|x| x.bind(py))
+    WEB_ASSEMBLY_MODULE.import(py, "js.WebAssembly.Module", "new")
 }
 
 #[cfg(test)]

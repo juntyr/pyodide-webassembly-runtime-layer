@@ -2,13 +2,15 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use fxhash::FxHashMap;
-use pyo3::{intern, prelude::*, sync::GILOnceCell};
+use pyo3::{prelude::*, sync::GILOnceCell};
 use wasm_runtime_layer::{
     backend::WasmModule, ExportType, ExternType, FuncType, GlobalType, ImportType, MemoryType,
     TableType, ValueType,
 };
 
-use crate::{conversion::js_uint8_array, features::UnsupportedWasmFeatureExtensionError, Engine};
+use crate::{
+    conversion::js_uint8_array_new, features::UnsupportedWasmFeatureExtensionError, Engine,
+};
 
 #[derive(Debug)]
 /// A WASM module.
@@ -45,11 +47,9 @@ impl WasmModule<Engine> for Module {
 
             let parsed = ParsedModule::parse(&bytes)?;
 
-            let buffer =
-                js_uint8_array(py)?.call_method1(intern!(py, "new"), (bytes.as_slice(),))?;
+            let buffer = js_uint8_array_new(py)?.call1((bytes.as_slice(),))?;
 
-            let module = match web_assembly_module(py)?.call_method1(intern!(py, "new"), (buffer,))
-            {
+            let module = match web_assembly_module_new(py)?.call1((buffer,)) {
                 Ok(module) => module,
                 // check if the error comes from missing feature support
                 // - if so, report the more informative unsupported feature error instead
@@ -137,8 +137,8 @@ impl ParsedModule {
                         let subtype = subtypes.next();
 
                         let ty = match (subtype, subtypes.next()) {
-                            (Some(subtype), None) => match &subtype.composite_type {
-                                wasmparser::CompositeType::Func(func_type) => FuncType::new(
+                            (Some(subtype), None) => match &subtype.composite_type.inner {
+                                wasmparser::CompositeInnerType::Func(func_type) => FuncType::new(
                                     func_type
                                         .params()
                                         .iter()
@@ -257,26 +257,7 @@ impl ParsedModule {
                         let _ = element;
                     }
                 },
-                wasmparser::Payload::Version { .. }
-                | wasmparser::Payload::StartSection { .. }
-                | wasmparser::Payload::DataCountSection { .. }
-                | wasmparser::Payload::DataSection(_)
-                | wasmparser::Payload::CodeSectionStart { .. }
-                | wasmparser::Payload::CodeSectionEntry(_)
-                | wasmparser::Payload::ModuleSection { .. }
-                | wasmparser::Payload::InstanceSection(_)
-                | wasmparser::Payload::CoreTypeSection(_)
-                | wasmparser::Payload::ComponentSection { .. }
-                | wasmparser::Payload::ComponentInstanceSection(_)
-                | wasmparser::Payload::ComponentAliasSection(_)
-                | wasmparser::Payload::ComponentTypeSection(_)
-                | wasmparser::Payload::ComponentCanonicalSection(_)
-                | wasmparser::Payload::ComponentStartSection { .. }
-                | wasmparser::Payload::ComponentImportSection(_)
-                | wasmparser::Payload::ComponentExportSection(_)
-                | wasmparser::Payload::CustomSection(_)
-                | wasmparser::Payload::UnknownSection { .. }
-                | wasmparser::Payload::End(_) => {},
+                _ => (),
             }
 
             anyhow::Ok(())
@@ -365,16 +346,7 @@ impl GlobalTypeFrom for GlobalType {
     }
 }
 
-fn web_assembly_module(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+fn web_assembly_module_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_MODULE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
-
-    WEB_ASSEMBLY_MODULE
-        .get_or_try_init(py, || {
-            Ok(py
-                .import_bound(intern!(py, "js"))?
-                .getattr(intern!(py, "WebAssembly"))?
-                .getattr(intern!(py, "Module"))?
-                .unbind())
-        })
-        .map(|x| x.bind(py))
+    WEB_ASSEMBLY_MODULE.import(py, "js.WebAssembly.Module", "new")
 }

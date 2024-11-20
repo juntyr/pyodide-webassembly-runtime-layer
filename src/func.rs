@@ -106,7 +106,7 @@ impl WasmFunc<Engine> for Func {
                 let results = match results.as_slice() {
                     [] => py.None(),
                     [res] => res.to_py(py),
-                    results => PyTuple::new_bound(py, results.iter().map(|res| res.to_py(py)))
+                    results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))?
                         .into_any()
                         .unbind(),
                 };
@@ -130,7 +130,7 @@ impl WasmFunc<Engine> for Func {
                 user_state: Some(user_state),
             })
         })
-        .unwrap()
+        .expect("Func::new should not fail")
     }
 
     fn ty(&self, _ctx: impl AsContext<Engine>) -> FuncType {
@@ -158,7 +158,7 @@ impl WasmFunc<Engine> for Func {
             assert_eq!(self.ty.results().len(), results.len());
 
             let args = args.iter().map(|arg| arg.to_py(py));
-            let args = PyTuple::new_bound(py, args);
+            let args = PyTuple::new(py, args)?;
 
             let res = self.func.bind(py).call1(args)?;
 
@@ -169,8 +169,7 @@ impl WasmFunc<Engine> for Func {
                 ([], []) => (),
                 ([ty], [result]) => *result = Value::from_py_typed(res, *ty)?,
                 (tys, results) => {
-                    let res: Bound<PyTuple> =
-                        PyTuple::type_object_bound(py).call1((res,))?.extract()?;
+                    let res: Bound<PyTuple> = PyTuple::type_object(py).call1((res,))?.extract()?;
 
                     // https://webassembly.github.io/spec/js-api/#exported-function-exotic-objects
                     assert_eq!(tys.len(), res.len());

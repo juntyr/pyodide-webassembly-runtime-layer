@@ -50,7 +50,7 @@ impl WasmTable<Engine> for Table {
 
             let init = init.to_py(py);
 
-            let table = web_assembly_table(py)?.call_method1(intern!(py, "new"), (desc, init))?;
+            let table = web_assembly_table_new(py)?.call1((desc, init))?;
 
             Ok(Self {
                 table: table.unbind(),
@@ -74,7 +74,7 @@ impl WasmTable<Engine> for Table {
 
             table.getattr(intern!(py, "length"))?.extract()
         })
-        .unwrap()
+        .expect("Table::size should not fail")
     }
 
     /// Grows the table by the given amount of elements.
@@ -110,7 +110,9 @@ impl WasmTable<Engine> for Table {
 
             let value = table.call_method1(intern!(py, "get"), (index,)).ok()?;
 
-            Some(Value::from_py_typed(value, self.ty.element()).unwrap())
+            Some(
+                Value::from_py_typed(value, self.ty.element()).expect("Table::get should not fail"),
+            )
         })
     }
 
@@ -169,14 +171,10 @@ impl Table {
 
 fn web_assembly_table(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_TABLE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    WEB_ASSEMBLY_TABLE.import(py, "js.WebAssembly", "Table")
+}
 
-    WEB_ASSEMBLY_TABLE
-        .get_or_try_init(py, || {
-            Ok(py
-                .import_bound(intern!(py, "js"))?
-                .getattr(intern!(py, "WebAssembly"))?
-                .getattr(intern!(py, "Table"))?
-                .unbind())
-        })
-        .map(|x| x.bind(py))
+fn web_assembly_table_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_TABLE_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    WEB_ASSEMBLY_TABLE_NEW.import(py, "js.WebAssembly.Table", "new")
 }

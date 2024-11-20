@@ -45,7 +45,7 @@ impl WasmExternRef<Engine> for ExternRef {
                 guest: guest.unbind(),
             })
         })
-        .unwrap()
+        .expect("ExternRef::new should not fail")
     }
 
     fn downcast<'a, 's: 'a, T: 'static, S: 's>(

@@ -48,15 +48,14 @@ impl WasmGlobal<Engine> for Global {
 
             let value = value.to_py(py);
 
-            let global =
-                web_assembly_global(py)?.call_method1(intern!(py, "new"), (desc, value))?;
+            let global = web_assembly_global_new(py)?.call1((desc, value))?;
 
             Ok(Self {
                 global: global.unbind(),
                 ty,
             })
         })
-        .unwrap()
+        .expect("Global::new should not fail")
     }
 
     fn ty(&self, _ctx: impl AsContext<Engine>) -> GlobalType {
@@ -93,7 +92,7 @@ impl WasmGlobal<Engine> for Global {
 
             Value::from_py_typed(value, self.ty.content())
         })
-        .unwrap()
+        .expect("Global::get should not fail")
     }
 }
 
@@ -128,14 +127,10 @@ impl Global {
 
 fn web_assembly_global(py: Python) -> Result<&Bound<PyAny>, PyErr> {
     static WEB_ASSEMBLY_GLOBAL: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    WEB_ASSEMBLY_GLOBAL.import(py, "js.WebAssembly", "Global")
+}
 
-    WEB_ASSEMBLY_GLOBAL
-        .get_or_try_init(py, || {
-            Ok(py
-                .import_bound(intern!(py, "js"))?
-                .getattr(intern!(py, "WebAssembly"))?
-                .getattr(intern!(py, "Global"))?
-                .unbind())
-        })
-        .map(|x| x.bind(py))
+fn web_assembly_global_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
+    static WEB_ASSEMBLY_GLOBAL_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    WEB_ASSEMBLY_GLOBAL_NEW.import(py, "js.WebAssembly.Global", "new")
 }
