@@ -88,7 +88,7 @@ impl WasmMemory<Engine> for Memory {
             let pages = u32::try_from(byte_len / PAGE_SIZE)?;
             Ok(pages)
         })
-        .unwrap()
+        .expect("Memory::current_pages should not fail")
     }
 
     fn read(

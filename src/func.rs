@@ -107,8 +107,7 @@ impl WasmFunc<Engine> for Func {
                     [] => py.None(),
                     [res] => res.to_py(py),
                     // PyTuple::new must not fail on slice of Py<PyAny>
-                    results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))
-                        .unwrap()
+                    results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))?
                         .into_any()
                         .unbind(),
                 };
@@ -132,7 +131,7 @@ impl WasmFunc<Engine> for Func {
                 user_state: Some(user_state),
             })
         })
-        .unwrap()
+        .expect("Func::new should not fail")
     }
 
     fn ty(&self, _ctx: impl AsContext<Engine>) -> FuncType {
@@ -160,8 +159,7 @@ impl WasmFunc<Engine> for Func {
             assert_eq!(self.ty.results().len(), results.len());
 
             let args = args.iter().map(|arg| arg.to_py(py));
-            // PyTuple::new must not fail on slice of Py<PyAny>
-            let args = PyTuple::new(py, args).unwrap();
+            let args = PyTuple::new(py, args)?;
 
             let res = self.func.bind(py).call1(args)?;
 

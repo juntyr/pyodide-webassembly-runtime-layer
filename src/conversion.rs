@@ -153,8 +153,7 @@ fn i64_to_js_bigint(py: Python, v: i64) -> Bound<PyAny> {
 
     let bigint = (|| object_wrapped_bigint(py)?.call1((v,)))();
 
-    // Conversion from an i64 to a BigInt that is wrapped in an Object cannot fail
-    bigint.unwrap()
+    bigint.expect("conversion from i64 to Object(BigInt(v)) should not fail")
 }
 
 fn try_i64_from_js_bigint(v: Bound<PyAny>) -> Result<i64, PyErr> {

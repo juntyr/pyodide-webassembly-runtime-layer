@@ -74,7 +74,7 @@ impl WasmTable<Engine> for Table {
 
             table.getattr(intern!(py, "length"))?.extract()
         })
-        .unwrap()
+        .expect("Table::size should not fail")
     }
 
     /// Grows the table by the given amount of elements.
@@ -110,7 +110,9 @@ impl WasmTable<Engine> for Table {
 
             let value = table.call_method1(intern!(py, "get"), (index,)).ok()?;
 
-            Some(Value::from_py_typed(value, self.ty.element()).unwrap())
+            Some(
+                Value::from_py_typed(value, self.ty.element()).expect("Table::get should not fail"),
+            )
         })
     }
 

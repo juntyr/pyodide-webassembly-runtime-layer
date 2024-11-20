@@ -55,7 +55,7 @@ impl WasmGlobal<Engine> for Global {
                 ty,
             })
         })
-        .unwrap()
+        .expect("Global::new should not fail")
     }
 
     fn ty(&self, _ctx: impl AsContext<Engine>) -> GlobalType {
@@ -92,7 +92,7 @@ impl WasmGlobal<Engine> for Global {
 
             Value::from_py_typed(value, self.ty.content())
         })
-        .unwrap()
+        .expect("Global::get should not fail")
     }
 }
 
