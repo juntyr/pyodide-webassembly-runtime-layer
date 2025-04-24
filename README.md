@@ -29,19 +29,19 @@ There is one exception to the intuitive memory management strategy:
 
 - [`Func::new`] creates a host function, which may capture arbitrary data. To avoid cross-language reference cycles, it is stored using [`wobbly`] references inside the [`Func`] and its associated [`Store`]. Even though the host function and its data are dropped once either the [`Store`] is dropped or references to the [`Func`] are dropped, additional bookkeeping data is required until both have been dropped.
 
-[`wasm_runtime_layer`]: https://docs.rs/wasm_runtime_layer/0.4/
+[`wasm_runtime_layer`]: https://docs.rs/wasm_runtime_layer/0.5/
 [`WebAssembly`]: https://developer.mozilla.org/en-US/docs/WebAssembly
 [`Pyodide`]: https://pyodide.org/en/stable/
 [`js_wasm_runtime_layer`]: https://docs.rs/js_wasm_runtime_layer/
 [`js-sys`]: https://docs.rs/js-sys/
 [`wasm-bindgen`]: https://docs.rs/wasm-bindgen/
 [`js`]: https://pyodide.org/en/stable/usage/api/python-api.html
-[`PyO3`]: https://docs.rs/pyo3/0.23/
+[`PyO3`]: https://docs.rs/pyo3/0.24/
 [new-issue]: https://github.com/juntyr/pyodide-webassembly-runtime-layer/issues/new
-[`Func::new`]: https://docs.rs/wasm_runtime_layer/0.4/wasm_runtime_layer/struct.Func.html#method.new
+[`Func::new`]: https://docs.rs/wasm_runtime_layer/0.5/wasm_runtime_layer/struct.Func.html#method.new
 [`wobbly`]: https://docs.rs/wobbly/0.1/
-[`Func`]: https://docs.rs/wasm_runtime_layer/0.4/wasm_runtime_layer/struct.Func.html
-[`Store`]: https://docs.rs/wasm_runtime_layer/0.4/wasm_runtime_layer/struct.Store.html
+[`Func`]: https://docs.rs/wasm_runtime_layer/0.5/wasm_runtime_layer/struct.Func.html
+[`Store`]: https://docs.rs/wasm_runtime_layer/0.5/wasm_runtime_layer/struct.Store.html
 
 ## License
 
