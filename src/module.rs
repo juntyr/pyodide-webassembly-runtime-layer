@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use anyhow::Context;
 use fxhash::FxHashMap;
 use pyo3::{prelude::*, sync::GILOnceCell};
 use wasm_runtime_layer::{
@@ -35,19 +34,14 @@ impl Clone for Module {
 }
 
 impl WasmModule<Engine> for Module {
-    fn new(_engine: &Engine, mut stream: impl std::io::Read) -> anyhow::Result<Self> {
+    fn new(_engine: &Engine, bytes: &[u8]) -> anyhow::Result<Self> {
         Python::with_gil(|py| {
             #[cfg(feature = "tracing")]
             let _span = tracing::debug_span!("Module::new").entered();
 
-            let mut bytes = Vec::new();
-            stream
-                .read_to_end(&mut bytes)
-                .context("Failed to read module bytes")?;
+            let parsed = ParsedModule::parse(bytes)?;
 
-            let parsed = ParsedModule::parse(&bytes)?;
-
-            let buffer = js_uint8_array_new(py)?.call1((bytes.as_slice(),))?;
+            let buffer = js_uint8_array_new(py)?.call1((bytes,))?;
 
             let module = match web_assembly_module_new(py)?.call1((buffer,)) {
                 Ok(module) => module,
@@ -55,7 +49,7 @@ impl WasmModule<Engine> for Module {
                 // - if so, report the more informative unsupported feature error instead
                 // - if not, bubble up the error that made module instantiation fail
                 Err(err) => match Python::with_gil(|py| {
-                    UnsupportedWasmFeatureExtensionError::check_support(py, &bytes)
+                    UnsupportedWasmFeatureExtensionError::check_support(py, bytes)
                 })? {
                     Ok(()) => anyhow::bail!(err),
                     Err(unsupported) => anyhow::bail!(unsupported),
