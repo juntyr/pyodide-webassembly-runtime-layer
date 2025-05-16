@@ -67,7 +67,7 @@
 //! [`js-sys`]: https://docs.rs/js-sys/
 //! [`wasm-bindgen`]: https://docs.rs/wasm-bindgen/
 //! [`js`]: https://pyodide.org/en/stable/usage/api/python-api.html
-//! [`PyO3`]: https://docs.rs/pyo3/0.24/
+//! [`PyO3`]: https://docs.rs/pyo3/0.25/
 //! [new-issue]: https://github.com/juntyr/pyodide-webassembly-runtime-layer/issues/new
 //! [`Func::new`]: https://docs.rs/wasm_runtime_layer/0.5/wasm_runtime_layer/struct.Func.html#method.new
 //! [`wobbly`]: https://docs.rs/wobbly/0.1/
