@@ -25,7 +25,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Func {
     /// The inner function
-    func: Py<PyAny>,
+    pyfunc: Py<PyAny>,
     /// The function signature
     ty: FuncType,
     /// The user state type of the context
@@ -35,7 +35,7 @@ pub struct Func {
 impl Clone for Func {
     fn clone(&self) -> Self {
         Python::with_gil(|py| Self {
-            func: self.func.clone_ref(py),
+            pyfunc: self.pyfunc.clone_ref(py),
             ty: self.ty.clone(),
             user_state: self.user_state,
         })
@@ -125,7 +125,7 @@ impl WasmFunc<Engine> for Func {
             let func = py_to_js_proxy(func)?;
 
             Ok(Self {
-                func: func.unbind(),
+                pyfunc: func.unbind(),
                 ty,
                 user_state: Some(user_state),
             })
@@ -160,7 +160,7 @@ impl WasmFunc<Engine> for Func {
             let args = args.iter().map(|arg| arg.to_py(py));
             let args = PyTuple::new(py, args)?;
 
-            let res = self.func.bind(py).call1(args)?;
+            let res = self.pyfunc.bind(py).call1(args)?;
 
             #[cfg(feature = "tracing")]
             tracing::debug!(%res, ?self.ty);
@@ -193,7 +193,7 @@ impl WasmFunc<Engine> for Func {
 
 impl ToPy for Func {
     fn to_py(&self, py: Python) -> Py<PyAny> {
-        self.func.clone_ref(py)
+        self.pyfunc.clone_ref(py)
     }
 }
 
@@ -208,7 +208,7 @@ impl Func {
         tracing::debug!(%func, ?ty, "Func::from_exported_function");
 
         Ok(Self {
-            func: func.unbind(),
+            pyfunc: func.unbind(),
             ty,
             user_state: None,
         })
