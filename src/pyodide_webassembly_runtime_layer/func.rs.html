@@ -25,7 +25,7 @@
 <a href=#25 id=25 data-nosnippet>25</a></span><span class="attr">#[derive(Debug)]
 <a href=#26 id=26 data-nosnippet>26</a></span><span class="kw">pub struct </span>Func {
 <a href=#27 id=27 data-nosnippet>27</a>    <span class="doccomment">/// The inner function
-<a href=#28 id=28 data-nosnippet>28</a>    </span>func: Py&lt;PyAny&gt;,
+<a href=#28 id=28 data-nosnippet>28</a>    </span>pyfunc: Py&lt;PyAny&gt;,
 <a href=#29 id=29 data-nosnippet>29</a>    <span class="doccomment">/// The function signature
 <a href=#30 id=30 data-nosnippet>30</a>    </span>ty: FuncType,
 <a href=#31 id=31 data-nosnippet>31</a>    <span class="doccomment">/// The user state type of the context
@@ -35,7 +35,7 @@
 <a href=#35 id=35 data-nosnippet>35</a><span class="kw">impl </span>Clone <span class="kw">for </span>Func {
 <a href=#36 id=36 data-nosnippet>36</a>    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 <a href=#37 id=37 data-nosnippet>37</a>        Python::with_gil(|py| <span class="self">Self </span>{
-<a href=#38 id=38 data-nosnippet>38</a>            func: <span class="self">self</span>.func.clone_ref(py),
+<a href=#38 id=38 data-nosnippet>38</a>            pyfunc: <span class="self">self</span>.pyfunc.clone_ref(py),
 <a href=#39 id=39 data-nosnippet>39</a>            ty: <span class="self">self</span>.ty.clone(),
 <a href=#40 id=40 data-nosnippet>40</a>            user_state: <span class="self">self</span>.user_state,
 <a href=#41 id=41 data-nosnippet>41</a>        })
@@ -125,7 +125,7 @@
 <a href=#125 id=125 data-nosnippet>125</a>            <span class="kw">let </span>func = py_to_js_proxy(func)<span class="question-mark">?</span>;
 <a href=#126 id=126 data-nosnippet>126</a>
 <a href=#127 id=127 data-nosnippet>127</a>            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-<a href=#128 id=128 data-nosnippet>128</a>                func: func.unbind(),
+<a href=#128 id=128 data-nosnippet>128</a>                pyfunc: func.unbind(),
 <a href=#129 id=129 data-nosnippet>129</a>                ty,
 <a href=#130 id=130 data-nosnippet>130</a>                user_state: <span class="prelude-val">Some</span>(user_state),
 <a href=#131 id=131 data-nosnippet>131</a>            })
@@ -160,7 +160,7 @@
 <a href=#160 id=160 data-nosnippet>160</a>            <span class="kw">let </span>args = args.iter().map(|arg| arg.to_py(py));
 <a href=#161 id=161 data-nosnippet>161</a>            <span class="kw">let </span>args = PyTuple::new(py, args)<span class="question-mark">?</span>;
 <a href=#162 id=162 data-nosnippet>162</a>
-<a href=#163 id=163 data-nosnippet>163</a>            <span class="kw">let </span>res = <span class="self">self</span>.func.bind(py).call1(args)<span class="question-mark">?</span>;
+<a href=#163 id=163 data-nosnippet>163</a>            <span class="kw">let </span>res = <span class="self">self</span>.pyfunc.bind(py).call1(args)<span class="question-mark">?</span>;
 <a href=#164 id=164 data-nosnippet>164</a>
 <a href=#165 id=165 data-nosnippet>165</a>            <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
 <a href=#166 id=166 data-nosnippet>166</a>            </span><span class="macro">tracing::debug!</span>(%res, <span class="question-mark">?</span><span class="self">self</span>.ty);
@@ -193,7 +193,7 @@
 <a href=#193 id=193 data-nosnippet>193</a>
 <a href=#194 id=194 data-nosnippet>194</a><span class="kw">impl </span>ToPy <span class="kw">for </span>Func {
 <a href=#195 id=195 data-nosnippet>195</a>    <span class="kw">fn </span>to_py(<span class="kw-2">&amp;</span><span class="self">self</span>, py: Python) -&gt; Py&lt;PyAny&gt; {
-<a href=#196 id=196 data-nosnippet>196</a>        <span class="self">self</span>.func.clone_ref(py)
+<a href=#196 id=196 data-nosnippet>196</a>        <span class="self">self</span>.pyfunc.clone_ref(py)
 <a href=#197 id=197 data-nosnippet>197</a>    }
 <a href=#198 id=198 data-nosnippet>198</a>}
 <a href=#199 id=199 data-nosnippet>199</a>
@@ -208,7 +208,7 @@
 <a href=#208 id=208 data-nosnippet>208</a>        </span><span class="macro">tracing::debug!</span>(%func, <span class="question-mark">?</span>ty, <span class="string">"Func::from_exported_function"</span>);
 <a href=#209 id=209 data-nosnippet>209</a>
 <a href=#210 id=210 data-nosnippet>210</a>        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-<a href=#211 id=211 data-nosnippet>211</a>            func: func.unbind(),
+<a href=#211 id=211 data-nosnippet>211</a>            pyfunc: func.unbind(),
 <a href=#212 id=212 data-nosnippet>212</a>            ty,
 <a href=#213 id=213 data-nosnippet>213</a>            user_state: <span class="prelude-val">None</span>,
 <a href=#214 id=214 data-nosnippet>214</a>        })
