@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/store.rs`."><title>store.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0ce1a80b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0-nightly (d97326eab 2025-05-15)" data-channel="nightly" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pyodide_webassembly_runtime_layer/</div>store.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::{
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/store.rs`."><title>store.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-aa0817cf.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="pyodide_webassembly_runtime_layer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.90.0-nightly (a7a1618e6 2025-07-22)" data-channel="nightly" data-search-js="search-fa3e91e5.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-673ee1e0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">pyodide_webassembly_runtime_layer/</div>store.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::{
 <a href=#2 id=2 data-nosnippet>2</a>    fmt,
 <a href=#3 id=3 data-nosnippet>3</a>    marker::PhantomData,
 <a href=#4 id=4 data-nosnippet>4</a>    sync::{Arc, Weak},
@@ -13,7 +13,7 @@
 <a href=#13 id=13 data-nosnippet>13</a>
 <a href=#14 id=14 data-nosnippet>14</a><span class="doccomment">/// A store for the [`Engine`], which stores host-defined data `T` and internal
 <a href=#15 id=15 data-nosnippet>15</a>/// state.
-<a href=#16 id=16 data-nosnippet>16</a></span><span class="kw">pub struct </span>Store&lt;T&gt; {
+<a href=#16 id=16 data-nosnippet>16</a></span><span class="kw">pub struct </span>Store&lt;T: <span class="lifetime">'static</span>&gt; {
 <a href=#17 id=17 data-nosnippet>17</a>    <span class="doccomment">/// The internal store is kept behind a pointer.
 <a href=#18 id=18 data-nosnippet>18</a>    ///
 <a href=#19 id=19 data-nosnippet>19</a>    /// This is to allow referencing and reconstructing a calling context in
@@ -58,7 +58,7 @@
 <a href=#58 id=58 data-nosnippet>58</a>}
 <a href=#59 id=59 data-nosnippet>59</a>
 <a href=#60 id=60 data-nosnippet>60</a><span class="doccomment">/// The inner state of the store, which is pinned in heap memory
-<a href=#61 id=61 data-nosnippet>61</a></span><span class="kw">struct </span>StoreInner&lt;T&gt; {
+<a href=#61 id=61 data-nosnippet>61</a></span><span class="kw">struct </span>StoreInner&lt;T: <span class="lifetime">'static</span>&gt; {
 <a href=#62 id=62 data-nosnippet>62</a>    <span class="doccomment">/// The engine used
 <a href=#63 id=63 data-nosnippet>63</a>    </span>engine: Engine,
 <a href=#64 id=64 data-nosnippet>64</a>    <span class="doccomment">/// The user data
@@ -68,7 +68,7 @@
 <a href=#68 id=68 data-nosnippet>68</a>    </span>host_funcs: Vec&lt;Wobbly&lt;PyHostFuncFn&gt;&gt;,
 <a href=#69 id=69 data-nosnippet>69</a>}
 <a href=#70 id=70 data-nosnippet>70</a>
-<a href=#71 id=71 data-nosnippet>71</a><span class="kw">impl</span>&lt;T&gt; WasmStore&lt;T, Engine&gt; <span class="kw">for </span>Store&lt;T&gt; {
+<a href=#71 id=71 data-nosnippet>71</a><span class="kw">impl</span>&lt;T: <span class="lifetime">'static</span>&gt; WasmStore&lt;T, Engine&gt; <span class="kw">for </span>Store&lt;T&gt; {
 <a href=#72 id=72 data-nosnippet>72</a>    <span class="kw">fn </span>new(engine: <span class="kw-2">&amp;</span>Engine, data: T) -&gt; <span class="self">Self </span>{
 <a href=#73 id=73 data-nosnippet>73</a>        <span class="attr">#[cfg(feature = <span class="string">"tracing"</span>)]
 <a href=#74 id=74 data-nosnippet>74</a>        </span><span class="macro">tracing::debug!</span>(<span class="string">"Store::new"</span>);
@@ -113,7 +113,7 @@
 <a href=#113 id=113 data-nosnippet>113</a>    }
 <a href=#114 id=114 data-nosnippet>114</a>}
 <a href=#115 id=115 data-nosnippet>115</a>
-<a href=#116 id=116 data-nosnippet>116</a><span class="kw">impl</span>&lt;T&gt; AsContext&lt;Engine&gt; <span class="kw">for </span>Store&lt;T&gt; {
+<a href=#116 id=116 data-nosnippet>116</a><span class="kw">impl</span>&lt;T: <span class="lifetime">'static</span>&gt; AsContext&lt;Engine&gt; <span class="kw">for </span>Store&lt;T&gt; {
 <a href=#117 id=117 data-nosnippet>117</a>    <span class="kw">type </span>UserState = T;
 <a href=#118 id=118 data-nosnippet>118</a>
 <a href=#119 id=119 data-nosnippet>119</a>    <span class="kw">fn </span>as_context(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; StoreContext&lt;<span class="lifetime">'_</span>, T&gt; {
@@ -124,7 +124,7 @@
 <a href=#124 id=124 data-nosnippet>124</a>    }
 <a href=#125 id=125 data-nosnippet>125</a>}
 <a href=#126 id=126 data-nosnippet>126</a>
-<a href=#127 id=127 data-nosnippet>127</a><span class="kw">impl</span>&lt;T&gt; AsContextMut&lt;Engine&gt; <span class="kw">for </span>Store&lt;T&gt; {
+<a href=#127 id=127 data-nosnippet>127</a><span class="kw">impl</span>&lt;T: <span class="lifetime">'static</span>&gt; AsContextMut&lt;Engine&gt; <span class="kw">for </span>Store&lt;T&gt; {
 <a href=#128 id=128 data-nosnippet>128</a>    <span class="kw">fn </span>as_context_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; StoreContextMut&lt;<span class="lifetime">'_</span>, T&gt; {
 <a href=#129 id=129 data-nosnippet>129</a>        <span class="comment">// Safety:
 <a href=#130 id=130 data-nosnippet>130</a>        //
@@ -139,7 +139,7 @@
 <a href=#139 id=139 data-nosnippet>139</a>    }
 <a href=#140 id=140 data-nosnippet>140</a>}
 <a href=#141 id=141 data-nosnippet>141</a>
-<a href=#142 id=142 data-nosnippet>142</a><span class="kw">impl</span>&lt;T: fmt::Debug&gt; fmt::Debug <span class="kw">for </span>Store&lt;T&gt; {
+<a href=#142 id=142 data-nosnippet>142</a><span class="kw">impl</span>&lt;T: <span class="lifetime">'static </span>+ fmt::Debug&gt; fmt::Debug <span class="kw">for </span>Store&lt;T&gt; {
 <a href=#143 id=143 data-nosnippet>143</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, fmt: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
 <a href=#144 id=144 data-nosnippet>144</a>        <span class="kw">let </span>store = <span class="self">self</span>.as_inner();
 <a href=#145 id=145 data-nosnippet>145</a>
@@ -150,19 +150,19 @@
 <a href=#150 id=150 data-nosnippet>150</a>    }
 <a href=#151 id=151 data-nosnippet>151</a>}
 <a href=#152 id=152 data-nosnippet>152</a>
-<a href=#153 id=153 data-nosnippet>153</a><span class="kw">impl</span>&lt;T: Default&gt; Default <span class="kw">for </span>Store&lt;T&gt; {
+<a href=#153 id=153 data-nosnippet>153</a><span class="kw">impl</span>&lt;T: <span class="lifetime">'static </span>+ Default&gt; Default <span class="kw">for </span>Store&lt;T&gt; {
 <a href=#154 id=154 data-nosnippet>154</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
 <a href=#155 id=155 data-nosnippet>155</a>        <span class="self">Self</span>::new(<span class="kw-2">&amp;</span>Engine::default(), T::default())
 <a href=#156 id=156 data-nosnippet>156</a>    }
 <a href=#157 id=157 data-nosnippet>157</a>}
 <a href=#158 id=158 data-nosnippet>158</a>
-<a href=#159 id=159 data-nosnippet>159</a><span class="kw">impl</span>&lt;T: Clone&gt; Clone <span class="kw">for </span>Store&lt;T&gt; {
+<a href=#159 id=159 data-nosnippet>159</a><span class="kw">impl</span>&lt;T: <span class="lifetime">'static </span>+ Clone&gt; Clone <span class="kw">for </span>Store&lt;T&gt; {
 <a href=#160 id=160 data-nosnippet>160</a>    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 <a href=#161 id=161 data-nosnippet>161</a>        <span class="self">Self</span>::new(<span class="self">self</span>.engine(), <span class="self">self</span>.data().clone())
 <a href=#162 id=162 data-nosnippet>162</a>    }
 <a href=#163 id=163 data-nosnippet>163</a>}
 <a href=#164 id=164 data-nosnippet>164</a>
-<a href=#165 id=165 data-nosnippet>165</a><span class="kw">impl</span>&lt;T&gt; Drop <span class="kw">for </span>Store&lt;T&gt; {
+<a href=#165 id=165 data-nosnippet>165</a><span class="kw">impl</span>&lt;T: <span class="lifetime">'static</span>&gt; Drop <span class="kw">for </span>Store&lt;T&gt; {
 <a href=#166 id=166 data-nosnippet>166</a>    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 <a href=#167 id=167 data-nosnippet>167</a>        std::mem::drop(<span class="kw">unsafe </span>{ Box::from_raw(<span class="self">self</span>.inner.as_ptr::&lt;T&gt;()) });
 <a href=#168 id=168 data-nosnippet>168</a>
@@ -191,7 +191,7 @@
 <a href=#191 id=191 data-nosnippet>191</a>
 <a href=#192 id=192 data-nosnippet>192</a><span class="attr">#[allow(clippy::module_name_repetitions)]
 <a href=#193 id=193 data-nosnippet>193</a></span><span class="doccomment">/// Immutable context to the store
-<a href=#194 id=194 data-nosnippet>194</a></span><span class="kw">pub struct </span>StoreContext&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a</span>&gt; {
+<a href=#194 id=194 data-nosnippet>194</a></span><span class="kw">pub struct </span>StoreContext&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'static</span>&gt; {
 <a href=#195 id=195 data-nosnippet>195</a>    <span class="doccomment">/// The store
 <a href=#196 id=196 data-nosnippet>196</a>    </span>store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>StoreInner&lt;T&gt;,
 <a href=#197 id=197 data-nosnippet>197</a>    <span class="doccomment">/// Proof that the store is being kept alive
@@ -200,14 +200,14 @@
 <a href=#200 id=200 data-nosnippet>200</a>
 <a href=#201 id=201 data-nosnippet>201</a><span class="attr">#[allow(clippy::module_name_repetitions)]
 <a href=#202 id=202 data-nosnippet>202</a></span><span class="doccomment">/// Mutable context to the store
-<a href=#203 id=203 data-nosnippet>203</a></span><span class="kw">pub struct </span>StoreContextMut&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a</span>&gt; {
+<a href=#203 id=203 data-nosnippet>203</a></span><span class="kw">pub struct </span>StoreContextMut&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'static</span>&gt; {
 <a href=#204 id=204 data-nosnippet>204</a>    <span class="doccomment">/// The store
 <a href=#205 id=205 data-nosnippet>205</a>    </span>store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>StoreInner&lt;T&gt;,
 <a href=#206 id=206 data-nosnippet>206</a>    <span class="doccomment">/// Proof that the store is being kept alive
 <a href=#207 id=207 data-nosnippet>207</a>    </span>proof: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Arc&lt;StoreProof&gt;,
 <a href=#208 id=208 data-nosnippet>208</a>}
 <a href=#209 id=209 data-nosnippet>209</a>
-<a href=#210 id=210 data-nosnippet>210</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a</span>&gt; StoreContextMut&lt;<span class="lifetime">'a</span>, T&gt; {
+<a href=#210 id=210 data-nosnippet>210</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'static</span>&gt; StoreContextMut&lt;<span class="lifetime">'a</span>, T&gt; {
 <a href=#211 id=211 data-nosnippet>211</a>    <span class="attr">#[allow(clippy::needless_pass_by_ref_mut)]
 <a href=#212 id=212 data-nosnippet>212</a>    </span><span class="doccomment">/// Returns a weak proof for having a mutable borrow of the inner store
 <a href=#213 id=213 data-nosnippet>213</a>    ///
@@ -241,7 +241,7 @@
 <a href=#241 id=241 data-nosnippet>241</a>    }
 <a href=#242 id=242 data-nosnippet>242</a>}
 <a href=#243 id=243 data-nosnippet>243</a>
-<a href=#244 id=244 data-nosnippet>244</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a</span>&gt; WasmStoreContext&lt;<span class="lifetime">'a</span>, T, Engine&gt; <span class="kw">for </span>StoreContext&lt;<span class="lifetime">'a</span>, T&gt; {
+<a href=#244 id=244 data-nosnippet>244</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'static</span>&gt; WasmStoreContext&lt;<span class="lifetime">'a</span>, T, Engine&gt; <span class="kw">for </span>StoreContext&lt;<span class="lifetime">'a</span>, T&gt; {
 <a href=#245 id=245 data-nosnippet>245</a>    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Engine {
 <a href=#246 id=246 data-nosnippet>246</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.store.engine
 <a href=#247 id=247 data-nosnippet>247</a>    }
@@ -262,7 +262,7 @@
 <a href=#262 id=262 data-nosnippet>262</a>    }
 <a href=#263 id=263 data-nosnippet>263</a>}
 <a href=#264 id=264 data-nosnippet>264</a>
-<a href=#265 id=265 data-nosnippet>265</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a</span>&gt; WasmStoreContext&lt;<span class="lifetime">'a</span>, T, Engine&gt; <span class="kw">for </span>StoreContextMut&lt;<span class="lifetime">'a</span>, T&gt; {
+<a href=#265 id=265 data-nosnippet>265</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'static</span>&gt; WasmStoreContext&lt;<span class="lifetime">'a</span>, T, Engine&gt; <span class="kw">for </span>StoreContextMut&lt;<span class="lifetime">'a</span>, T&gt; {
 <a href=#266 id=266 data-nosnippet>266</a>    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Engine {
 <a href=#267 id=267 data-nosnippet>267</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.store.engine
 <a href=#268 id=268 data-nosnippet>268</a>    }
@@ -272,7 +272,7 @@
 <a href=#272 id=272 data-nosnippet>272</a>    }
 <a href=#273 id=273 data-nosnippet>273</a>}
 <a href=#274 id=274 data-nosnippet>274</a>
-<a href=#275 id=275 data-nosnippet>275</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a</span>&gt; WasmStoreContextMut&lt;<span class="lifetime">'a</span>, T, Engine&gt; <span class="kw">for </span>StoreContextMut&lt;<span class="lifetime">'a</span>, T&gt; {
+<a href=#275 id=275 data-nosnippet>275</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'static</span>&gt; WasmStoreContextMut&lt;<span class="lifetime">'a</span>, T, Engine&gt; <span class="kw">for </span>StoreContextMut&lt;<span class="lifetime">'a</span>, T&gt; {
 <a href=#276 id=276 data-nosnippet>276</a>    <span class="kw">fn </span>data_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>T {
 <a href=#277 id=277 data-nosnippet>277</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>.store.data
 <a href=#278 id=278 data-nosnippet>278</a>    }
