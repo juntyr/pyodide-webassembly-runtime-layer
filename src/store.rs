@@ -13,7 +13,7 @@ use crate::{func::PyHostFuncFn, Engine};
 
 /// A store for the [`Engine`], which stores host-defined data `T` and internal
 /// state.
-pub struct Store<T> {
+pub struct Store<T: 'static> {
     /// The internal store is kept behind a pointer.
     ///
     /// This is to allow referencing and reconstructing a calling context in
@@ -58,7 +58,7 @@ pub struct Store<T> {
 }
 
 /// The inner state of the store, which is pinned in heap memory
-struct StoreInner<T> {
+struct StoreInner<T: 'static> {
     /// The engine used
     engine: Engine,
     /// The user data
@@ -68,7 +68,7 @@ struct StoreInner<T> {
     host_funcs: Vec<Wobbly<PyHostFuncFn>>,
 }
 
-impl<T> WasmStore<T, Engine> for Store<T> {
+impl<T: 'static> WasmStore<T, Engine> for Store<T> {
     fn new(engine: &Engine, data: T) -> Self {
         #[cfg(feature = "tracing")]
         tracing::debug!("Store::new");
@@ -113,7 +113,7 @@ impl<T> WasmStore<T, Engine> for Store<T> {
     }
 }
 
-impl<T> AsContext<Engine> for Store<T> {
+impl<T: 'static> AsContext<Engine> for Store<T> {
     type UserState = T;
 
     fn as_context(&self) -> StoreContext<'_, T> {
@@ -124,7 +124,7 @@ impl<T> AsContext<Engine> for Store<T> {
     }
 }
 
-impl<T> AsContextMut<Engine> for Store<T> {
+impl<T: 'static> AsContextMut<Engine> for Store<T> {
     fn as_context_mut(&mut self) -> StoreContextMut<'_, T> {
         // Safety:
         //
@@ -139,7 +139,7 @@ impl<T> AsContextMut<Engine> for Store<T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for Store<T> {
+impl<T: 'static + fmt::Debug> fmt::Debug for Store<T> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         let store = self.as_inner();
 
@@ -150,19 +150,19 @@ impl<T: fmt::Debug> fmt::Debug for Store<T> {
     }
 }
 
-impl<T: Default> Default for Store<T> {
+impl<T: 'static + Default> Default for Store<T> {
     fn default() -> Self {
         Self::new(&Engine::default(), T::default())
     }
 }
 
-impl<T: Clone> Clone for Store<T> {
+impl<T: 'static + Clone> Clone for Store<T> {
     fn clone(&self) -> Self {
         Self::new(self.engine(), self.data().clone())
     }
 }
 
-impl<T> Drop for Store<T> {
+impl<T: 'static> Drop for Store<T> {
     fn drop(&mut self) {
         std::mem::drop(unsafe { Box::from_raw(self.inner.as_ptr::<T>()) });
 
@@ -191,7 +191,7 @@ impl<T> Store<T> {
 
 #[allow(clippy::module_name_repetitions)]
 /// Immutable context to the store
-pub struct StoreContext<'a, T: 'a> {
+pub struct StoreContext<'a, T: 'static> {
     /// The store
     store: &'a StoreInner<T>,
     /// Proof that the store is being kept alive
@@ -200,14 +200,14 @@ pub struct StoreContext<'a, T: 'a> {
 
 #[allow(clippy::module_name_repetitions)]
 /// Mutable context to the store
-pub struct StoreContextMut<'a, T: 'a> {
+pub struct StoreContextMut<'a, T: 'static> {
     /// The store
     store: &'a mut StoreInner<T>,
     /// Proof that the store is being kept alive
     proof: &'a mut Arc<StoreProof>,
 }
 
-impl<'a, T: 'a> StoreContextMut<'a, T> {
+impl<'a, T: 'static> StoreContextMut<'a, T> {
     #[allow(clippy::needless_pass_by_ref_mut)]
     /// Returns a weak proof for having a mutable borrow of the inner store
     ///
@@ -241,7 +241,7 @@ impl<'a, T: 'a> StoreContextMut<'a, T> {
     }
 }
 
-impl<'a, T: 'a> WasmStoreContext<'a, T, Engine> for StoreContext<'a, T> {
+impl<'a, T: 'static> WasmStoreContext<'a, T, Engine> for StoreContext<'a, T> {
     fn engine(&self) -> &Engine {
         &self.store.engine
     }
@@ -262,7 +262,7 @@ impl<'a, T: 'a> AsContext<Engine> for StoreContext<'a, T> {
     }
 }
 
-impl<'a, T: 'a> WasmStoreContext<'a, T, Engine> for StoreContextMut<'a, T> {
+impl<'a, T: 'static> WasmStoreContext<'a, T, Engine> for StoreContextMut<'a, T> {
     fn engine(&self) -> &Engine {
         &self.store.engine
     }
@@ -272,7 +272,7 @@ impl<'a, T: 'a> WasmStoreContext<'a, T, Engine> for StoreContextMut<'a, T> {
     }
 }
 
-impl<'a, T: 'a> WasmStoreContextMut<'a, T, Engine> for StoreContextMut<'a, T> {
+impl<'a, T: 'static> WasmStoreContextMut<'a, T, Engine> for StoreContextMut<'a, T> {
     fn data_mut(&mut self) -> &mut T {
         &mut self.store.data
     }

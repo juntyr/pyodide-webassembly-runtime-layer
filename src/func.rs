@@ -43,7 +43,7 @@ impl Clone for Func {
 }
 
 impl WasmFunc<Engine> for Func {
-    fn new<T>(
+    fn new<T: 'static>(
         mut ctx: impl AsContextMut<Engine, UserState = T>,
         ty: FuncType,
         func: impl 'static
