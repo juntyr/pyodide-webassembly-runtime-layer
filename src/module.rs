@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use fxhash::FxHashMap;
-use pyo3::{prelude::*, sync::GILOnceCell};
+use pyo3::{prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
     backend::WasmModule, ExportType, ExternType, FuncType, GlobalType, ImportType, MemoryType,
     TableType, ValueType,
@@ -26,7 +26,7 @@ pub struct Module {
 
 impl Clone for Module {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             module: self.module.clone_ref(py),
             parsed: self.parsed.clone(),
         })
@@ -35,7 +35,7 @@ impl Clone for Module {
 
 impl WasmModule<Engine> for Module {
     fn new(_engine: &Engine, bytes: &[u8]) -> anyhow::Result<Self> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             #[cfg(feature = "tracing")]
             let _span = tracing::debug_span!("Module::new").entered();
 
@@ -48,7 +48,7 @@ impl WasmModule<Engine> for Module {
                 // check if the error comes from missing feature support
                 // - if so, report the more informative unsupported feature error instead
                 // - if not, bubble up the error that made module instantiation fail
-                Err(err) => match Python::with_gil(|py| {
+                Err(err) => match Python::attach(|py| {
                     UnsupportedWasmFeatureExtensionError::check_support(py, bytes)
                 })? {
                     Ok(()) => anyhow::bail!(err),
@@ -340,7 +340,7 @@ impl GlobalTypeFrom for GlobalType {
     }
 }
 
-fn web_assembly_module_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static WEB_ASSEMBLY_MODULE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+fn web_assembly_module_new(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static WEB_ASSEMBLY_MODULE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     WEB_ASSEMBLY_MODULE.import(py, "js.WebAssembly.Module", "new")
 }

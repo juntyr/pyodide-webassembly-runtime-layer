@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 
-use pyo3::{exceptions::PyRuntimeError, intern, prelude::*, sync::GILOnceCell, types::IntoPyDict};
+use pyo3::{exceptions::PyRuntimeError, intern, prelude::*, sync::PyOnceLock, types::IntoPyDict};
 use wasm_runtime_layer::{
     backend::{Extern, Value},
     ValueType,
@@ -133,8 +133,8 @@ impl ValueTypeExt for ValueType {
 }
 
 fn i64_to_js_bigint(py: Python, v: i64) -> Bound<PyAny> {
-    fn object_wrapped_bigint(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-        static OBJECT_WRAPPED_BIGINT: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    fn object_wrapped_bigint(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+        static OBJECT_WRAPPED_BIGINT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
         OBJECT_WRAPPED_BIGINT
             .get_or_try_init(py, || {
@@ -157,8 +157,8 @@ fn i64_to_js_bigint(py: Python, v: i64) -> Bound<PyAny> {
 }
 
 fn try_i64_from_js_bigint(v: Bound<PyAny>) -> Result<i64, PyErr> {
-    fn js_bigint(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-        static JS_BIG_INT: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    fn js_bigint(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+        static JS_BIG_INT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
         JS_BIG_INT.import(py, "js", "BigInt")
     }
 
@@ -166,15 +166,15 @@ fn try_i64_from_js_bigint(v: Bound<PyAny>) -> Result<i64, PyErr> {
     js_bigint(v.py())?.call1((v,))?.extract()
 }
 
-pub fn js_uint8_array_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static JS_UINT8_ARRAY_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+pub fn js_uint8_array_new(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static JS_UINT8_ARRAY_NEW: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     JS_UINT8_ARRAY_NEW.import(py, "js.Uint8Array", "new")
 }
 
 /// Check if `object` is an instance of the JavaScript class with `constructor`.
 pub fn instanceof(object: &Bound<PyAny>, constructor: &Bound<PyAny>) -> Result<bool, PyErr> {
-    fn is_instance_of(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-        static IS_INSTANCE_OF: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    fn is_instance_of(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+        static IS_INSTANCE_OF: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
         IS_INSTANCE_OF
             .get_or_try_init(py, || {
@@ -197,8 +197,8 @@ pub fn instanceof(object: &Bound<PyAny>, constructor: &Bound<PyAny>) -> Result<b
 }
 
 pub fn create_js_object(py: Python) -> Result<Bound<PyAny>, PyErr> {
-    fn js_object_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-        static JS_OBJECT_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    fn js_object_new(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+        static JS_OBJECT_NEW: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
         JS_OBJECT_NEW.import(py, "js.Object", "new")
     }
 
@@ -206,8 +206,8 @@ pub fn create_js_object(py: Python) -> Result<Bound<PyAny>, PyErr> {
 }
 
 pub fn py_to_js_proxy<T>(object: Bound<T>) -> Result<Bound<PyAny>, PyErr> {
-    fn to_js(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-        static TO_JS: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+    fn to_js(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+        static TO_JS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
         TO_JS.import(py, "pyodide.ffi", "to_js")
     }
 

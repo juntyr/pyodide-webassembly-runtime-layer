@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, sync::Arc};
 
 use fxhash::FxHashMap;
-use pyo3::{intern, prelude::*, sync::GILOnceCell};
+use pyo3::{intern, prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Export, Extern, Imports, WasmInstance, WasmModule},
     ExportType, ExternType,
@@ -27,7 +27,7 @@ pub struct Instance {
 
 impl Clone for Instance {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             instance: self.instance.clone_ref(py),
             exports: self.exports.clone(),
         })
@@ -40,7 +40,7 @@ impl WasmInstance<Engine> for Instance {
         module: &Module,
         imports: &Imports<Engine>,
     ) -> anyhow::Result<Self> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             #[cfg(feature = "tracing")]
             let _span = tracing::debug_span!("Instance::new").entered();
 
@@ -155,7 +155,7 @@ fn process_exports(
         .collect()
 }
 
-fn web_assembly_instance_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static WEB_ASSEMBLY_INSTANCE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+fn web_assembly_instance_new(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static WEB_ASSEMBLY_INSTANCE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     WEB_ASSEMBLY_INSTANCE.import(py, "js.WebAssembly.Instance", "new")
 }

@@ -1,4 +1,4 @@
-use pyo3::{intern, prelude::*, sync::GILOnceCell, types::PyBytes};
+use pyo3::{intern, prelude::*, sync::PyOnceLock, types::PyBytes};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, WasmMemory},
     MemoryType,
@@ -24,7 +24,7 @@ pub struct Memory {
 
 impl Clone for Memory {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             memory: self.memory.clone_ref(py),
             ty: self.ty,
         })
@@ -33,7 +33,7 @@ impl Clone for Memory {
 
 impl WasmMemory<Engine> for Memory {
     fn new(_ctx: impl AsContextMut<Engine>, ty: MemoryType) -> anyhow::Result<Self> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             #[cfg(feature = "tracing")]
             tracing::debug!(?ty, "Memory::new");
 
@@ -57,7 +57,7 @@ impl WasmMemory<Engine> for Memory {
     }
 
     fn grow(&self, _ctx: impl AsContextMut<Engine>, additional: u32) -> anyhow::Result<u32> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let memory = self.memory.bind(py);
 
             #[cfg(feature = "tracing")]
@@ -74,7 +74,7 @@ impl WasmMemory<Engine> for Memory {
     fn current_pages(&self, _ctx: impl AsContext<Engine>) -> u32 {
         const PAGE_SIZE: u64 = 1 << 16;
 
-        Python::with_gil(|py| -> Result<u32, PyErr> {
+        Python::attach(|py| -> Result<u32, PyErr> {
             let memory = self.memory.bind(py);
 
             #[cfg(feature = "tracing")]
@@ -97,7 +97,7 @@ impl WasmMemory<Engine> for Memory {
         offset: usize,
         buffer: &mut [u8],
     ) -> anyhow::Result<()> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let memory = self.memory.bind(py);
 
             #[cfg(feature = "tracing")]
@@ -119,7 +119,7 @@ impl WasmMemory<Engine> for Memory {
         offset: usize,
         buffer: &[u8],
     ) -> anyhow::Result<()> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let memory = self.memory.bind(py);
 
             #[cfg(feature = "tracing")]
@@ -164,12 +164,12 @@ impl Memory {
     }
 }
 
-fn web_assembly_memory(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static WEB_ASSEMBLY_MEMORY: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+fn web_assembly_memory(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static WEB_ASSEMBLY_MEMORY: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     WEB_ASSEMBLY_MEMORY.import(py, "js.WebAssembly", "Memory")
 }
 
-fn web_assembly_memory_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static WEB_ASSEMBLY_MEMORY_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+fn web_assembly_memory_new(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static WEB_ASSEMBLY_MEMORY_NEW: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     WEB_ASSEMBLY_MEMORY_NEW.import(py, "js.WebAssembly.Memory", "new")
 }

@@ -1,4 +1,4 @@
-use pyo3::{intern, prelude::*, sync::GILOnceCell};
+use pyo3::{intern, prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmTable},
     TableType, ValueType,
@@ -24,7 +24,7 @@ pub struct Table {
 
 impl Clone for Table {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             table: self.table.clone_ref(py),
             ty: self.ty,
         })
@@ -37,7 +37,7 @@ impl WasmTable<Engine> for Table {
         ty: TableType,
         init: Value<Engine>,
     ) -> anyhow::Result<Self> {
-        Python::with_gil(|py| -> anyhow::Result<Self> {
+        Python::attach(|py| -> anyhow::Result<Self> {
             #[cfg(feature = "tracing")]
             tracing::debug!(?ty, ?init, "Table::new");
 
@@ -66,7 +66,7 @@ impl WasmTable<Engine> for Table {
 
     /// Returns the current size of the table.
     fn size(&self, _ctx: impl AsContext<Engine>) -> u32 {
-        Python::with_gil(|py| -> Result<u32, PyErr> {
+        Python::attach(|py| -> Result<u32, PyErr> {
             let table = self.table.bind(py);
 
             #[cfg(feature = "tracing")]
@@ -84,7 +84,7 @@ impl WasmTable<Engine> for Table {
         delta: u32,
         init: Value<Engine>,
     ) -> anyhow::Result<u32> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let table = self.table.bind(py);
 
             #[cfg(feature = "tracing")]
@@ -102,7 +102,7 @@ impl WasmTable<Engine> for Table {
 
     /// Returns the table element value at `index`.
     fn get(&self, _ctx: impl AsContextMut<Engine>, index: u32) -> Option<Value<Engine>> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let table = self.table.bind(py);
 
             #[cfg(feature = "tracing")]
@@ -123,7 +123,7 @@ impl WasmTable<Engine> for Table {
         index: u32,
         value: Value<Engine>,
     ) -> anyhow::Result<()> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let table = self.table.bind(py);
 
             #[cfg(feature = "tracing")]
@@ -169,12 +169,12 @@ impl Table {
     }
 }
 
-fn web_assembly_table(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static WEB_ASSEMBLY_TABLE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+fn web_assembly_table(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static WEB_ASSEMBLY_TABLE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     WEB_ASSEMBLY_TABLE.import(py, "js.WebAssembly", "Table")
 }
 
-fn web_assembly_table_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static WEB_ASSEMBLY_TABLE_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+fn web_assembly_table_new(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static WEB_ASSEMBLY_TABLE_NEW: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     WEB_ASSEMBLY_TABLE_NEW.import(py, "js.WebAssembly.Table", "new")
 }

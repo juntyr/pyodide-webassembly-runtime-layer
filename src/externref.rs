@@ -20,7 +20,7 @@ pub struct ExternRef {
 
 impl Clone for ExternRef {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             host: self.host.clone(),
             guest: self.guest.clone_ref(py),
         })
@@ -29,7 +29,7 @@ impl Clone for ExternRef {
 
 impl WasmExternRef<Engine> for ExternRef {
     fn new<T: 'static + Send + Sync>(_ctx: impl AsContextMut<Engine>, object: T) -> Self {
-        Python::with_gil(|py| -> Result<Self, PyErr> {
+        Python::attach(|py| -> Result<Self, PyErr> {
             let object: Arc<AnyExternRef> = Arc::new(object);
 
             let guest = Bound::new(
@@ -57,7 +57,7 @@ impl WasmExternRef<Engine> for ExternRef {
             anyhow::bail!("extern ref is from a different source");
         };
 
-        let Some(object) = object.downcast_ref() else {
+        let Some(object) = (**object).downcast_ref() else {
             anyhow::bail!("incorrect extern ref type");
         };
 

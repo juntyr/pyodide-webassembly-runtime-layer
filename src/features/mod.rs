@@ -1,7 +1,7 @@
 use std::{error::Error, fmt};
 
 use flagset::FlagSet;
-use pyo3::{prelude::*, sync::GILOnceCell};
+use pyo3::{prelude::*, sync::PyOnceLock};
 
 use crate::conversion::js_uint8_array_new;
 
@@ -111,7 +111,7 @@ impl WasmFeatureExtension {
     }
 
     pub fn supported(py: Python) -> Result<&'static FlagSet<Self>, PyErr> {
-        static SUPPORTED_FEATURES: GILOnceCell<FlagSet<WasmFeatureExtension>> = GILOnceCell::new();
+        static SUPPORTED_FEATURES: PyOnceLock<FlagSet<WasmFeatureExtension>> = PyOnceLock::new();
 
         SUPPORTED_FEATURES.get_or_try_init(py, || {
             let mut supported = FlagSet::default();
@@ -210,13 +210,13 @@ impl fmt::Display for WasmFeatureExtension {
     }
 }
 
-fn web_assembly_validate(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static WEB_ASSEMBLY_VALIDATE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+fn web_assembly_validate(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static WEB_ASSEMBLY_VALIDATE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     WEB_ASSEMBLY_VALIDATE.import(py, "js.WebAssembly", "validate")
 }
 
-fn web_assembly_module_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static WEB_ASSEMBLY_MODULE: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+fn web_assembly_module_new(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static WEB_ASSEMBLY_MODULE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     WEB_ASSEMBLY_MODULE.import(py, "js.WebAssembly.Module", "new")
 }
 

@@ -34,7 +34,7 @@ pub struct Func {
 
 impl Clone for Func {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             pyfunc: self.pyfunc.clone_ref(py),
             ty: self.ty.clone(),
             user_state: self.user_state,
@@ -51,7 +51,7 @@ impl WasmFunc<Engine> for Func {
             + Sync
             + Fn(StoreContextMut<T>, &[Value<Engine>], &mut [Value<Engine>]) -> anyhow::Result<()>,
     ) -> Self {
-        Python::with_gil(|py| -> Result<Self, PyErr> {
+        Python::attach(|py| -> Result<Self, PyErr> {
             #[cfg(feature = "tracing")]
             tracing::debug!("Func::new");
 
@@ -143,7 +143,7 @@ impl WasmFunc<Engine> for Func {
         args: &[Value<Engine>],
         results: &mut [Value<Engine>],
     ) -> anyhow::Result<()> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let store: StoreContextMut<_> = ctx.as_context_mut();
 
             if let Some(user_state) = self.user_state {

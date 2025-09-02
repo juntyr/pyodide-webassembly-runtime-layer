@@ -1,4 +1,4 @@
-use pyo3::{intern, prelude::*, sync::GILOnceCell};
+use pyo3::{intern, prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
     backend::{AsContext, AsContextMut, Value, WasmGlobal},
     GlobalType,
@@ -24,7 +24,7 @@ pub struct Global {
 
 impl Clone for Global {
     fn clone(&self) -> Self {
-        Python::with_gil(|py| Self {
+        Python::attach(|py| Self {
             global: self.global.clone_ref(py),
             ty: self.ty,
         })
@@ -33,7 +33,7 @@ impl Clone for Global {
 
 impl WasmGlobal<Engine> for Global {
     fn new(_ctx: impl AsContextMut<Engine>, value: Value<Engine>, mutable: bool) -> Self {
-        Python::with_gil(|py| -> Result<Self, PyErr> {
+        Python::attach(|py| -> Result<Self, PyErr> {
             #[cfg(feature = "tracing")]
             tracing::debug!(?value, mutable, "Global::new");
 
@@ -67,7 +67,7 @@ impl WasmGlobal<Engine> for Global {
             return Err(anyhow::anyhow!("Global is not mutable"));
         }
 
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let global = self.global.bind(py);
 
             #[cfg(feature = "tracing")]
@@ -82,7 +82,7 @@ impl WasmGlobal<Engine> for Global {
     }
 
     fn get(&self, _ctx: impl AsContextMut<Engine>) -> Value<Engine> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let global = self.global.bind(py);
 
             #[cfg(feature = "tracing")]
@@ -125,12 +125,12 @@ impl Global {
     }
 }
 
-fn web_assembly_global(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static WEB_ASSEMBLY_GLOBAL: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+fn web_assembly_global(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static WEB_ASSEMBLY_GLOBAL: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     WEB_ASSEMBLY_GLOBAL.import(py, "js.WebAssembly", "Global")
 }
 
-fn web_assembly_global_new(py: Python) -> Result<&Bound<PyAny>, PyErr> {
-    static WEB_ASSEMBLY_GLOBAL_NEW: GILOnceCell<Py<PyAny>> = GILOnceCell::new();
+fn web_assembly_global_new(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
+    static WEB_ASSEMBLY_GLOBAL_NEW: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
     WEB_ASSEMBLY_GLOBAL_NEW.import(py, "js.WebAssembly.Global", "new")
 }
