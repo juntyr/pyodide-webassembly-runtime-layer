@@ -169,7 +169,10 @@ impl WasmFunc<Engine> for Func {
                 ([], []) => (),
                 ([ty], [result]) => *result = Value::from_py_typed(res, *ty)?,
                 (tys, results) => {
-                    let res: Bound<PyTuple> = PyTuple::type_object(py).call1((res,))?.extract()?;
+                    let res: Bound<PyTuple> = PyTuple::type_object(py)
+                        .call1((res,))?
+                        .extract()
+                        .map_err(PyErr::from)?;
 
                     // https://webassembly.github.io/spec/js-api/#exported-function-exotic-objects
                     assert_eq!(tys.len(), res.len());

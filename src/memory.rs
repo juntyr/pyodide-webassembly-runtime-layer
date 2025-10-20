@@ -106,7 +106,10 @@ impl WasmMemory<Engine> for Memory {
             let memory = memory.getattr(intern!(py, "buffer"))?;
             let memory = js_uint8_array_new(py)?.call1((memory, offset, buffer.len()))?;
 
-            let bytes: Bound<PyBytes> = memory.call_method0(intern!(py, "to_bytes"))?.extract()?;
+            let bytes: Bound<PyBytes> = memory
+                .call_method0(intern!(py, "to_bytes"))?
+                .extract()
+                .map_err(PyErr::from)?;
             buffer.copy_from_slice(bytes.as_bytes());
 
             Ok(())
