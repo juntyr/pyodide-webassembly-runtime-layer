@@ -102,7 +102,7 @@ impl<T: 'static> WasmStore<T, Engine> for Store<T> {
         //
         // This is the only read from self, which will not be dropped, so no duplication
         // occurs
-        let inner = Arc::into_inner(unsafe { std::ptr::read(&this.inner) })
+        let inner = Arc::into_inner(unsafe { std::ptr::read(&raw const this.inner) })
             .expect("Store owns the only strong reference to StoreInner");
 
         // Safety:
