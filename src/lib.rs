@@ -13,7 +13,7 @@
 //! [CI Status]: https://img.shields.io/github/actions/workflow/status/juntyr/pyodide-webassembly-runtime-layer/ci.yml?branch=main
 //! [workflow]: https://github.com/juntyr/pyodide-webassembly-runtime-layer/actions/workflows/ci.yml?query=branch%3Amain
 //!
-//! [MSRV]: https://img.shields.io/badge/MSRV-1.76.0-blue
+//! [MSRV]: https://img.shields.io/badge/MSRV-1.83.0-blue
 //! [repo]: https://github.com/juntyr/pyodide-webassembly-runtime-layer
 //!
 //! [Latest Version]: https://img.shields.io/crates/v/pyodide-webassembly-runtime-layer
@@ -67,7 +67,7 @@
 //! [`js-sys`]: https://docs.rs/js-sys/
 //! [`wasm-bindgen`]: https://docs.rs/wasm-bindgen/
 //! [`js`]: https://pyodide.org/en/stable/usage/api/python-api.html
-//! [`PyO3`]: https://docs.rs/pyo3/0.27/
+//! [`PyO3`]: https://docs.rs/pyo3/0.28/
 //! [new-issue]: https://github.com/juntyr/pyodide-webassembly-runtime-layer/issues/new
 //! [`Func::new`]: https://docs.rs/wasm_runtime_layer/0.6/wasm_runtime_layer/struct.Func.html#method.new
 //! [`wobbly`]: https://docs.rs/wobbly/0.1/

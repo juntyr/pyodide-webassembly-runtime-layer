@@ -190,10 +190,11 @@ impl ParsedModule {
                     }
                 },
                 wasmparser::Payload::ImportSection(section) => {
-                    for import in section {
+                    for import in section.into_imports() {
                         let import = import?;
                         let ty = match import.ty {
-                            wasmparser::TypeRef::Func(index) => {
+                            wasmparser::TypeRef::Func(index)
+                            | wasmparser::TypeRef::FuncExact(index) => {
                                 let sig = types[index as usize].clone().with_name(import.name);
                                 functions.push(sig.clone());
                                 ExternType::Func(sig)
@@ -223,7 +224,8 @@ impl ParsedModule {
                         let export = export?;
                         let index = export.index as usize;
                         let ty = match export.kind {
-                            wasmparser::ExternalKind::Func => {
+                            wasmparser::ExternalKind::Func
+                            | wasmparser::ExternalKind::FuncExact => {
                                 ExternType::Func(functions[index].clone().with_name(export.name))
                             },
                             wasmparser::ExternalKind::Table => ExternType::Table(tables[index]),

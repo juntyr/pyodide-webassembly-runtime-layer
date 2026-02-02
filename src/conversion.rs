@@ -1,6 +1,8 @@
 use std::convert::Infallible;
 
-use pyo3::{exceptions::PyRuntimeError, intern, prelude::*, sync::PyOnceLock, types::IntoPyDict};
+use pyo3::{
+    exceptions::PyRuntimeError, intern, prelude::*, sync::PyOnceLock, types::IntoPyDict, PyTypeInfo,
+};
 use wasm_runtime_layer::{
     backend::{Extern, Value},
     ValueType,
@@ -205,7 +207,7 @@ pub fn create_js_object(py: Python) -> Result<Bound<PyAny>, PyErr> {
     js_object_new(py)?.call0()
 }
 
-pub fn py_to_js_proxy<T>(object: Bound<T>) -> Result<Bound<PyAny>, PyErr> {
+pub fn py_to_js_proxy<T: PyTypeInfo>(object: Bound<T>) -> Result<Bound<PyAny>, PyErr> {
     fn to_js(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
         static TO_JS: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
         TO_JS.import(py, "pyodide.ffi", "to_js")
