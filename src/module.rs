@@ -117,76 +117,15 @@ impl ParsedModule {
         let mut types = Vec::new();
 
         let mut functions = Vec::new();
-        let mut memories = Vec::new();
         let mut tables = Vec::new();
+        let mut memories = Vec::new();
         let mut globals = Vec::new();
 
         parser.parse_all(bytes).try_for_each(|payload| {
             match payload? {
                 wasmparser::Payload::TypeSection(section) => {
-                    for ty in section {
-                        let ty = ty?;
-
-                        let mut subtypes = ty.types();
-                        let subtype = subtypes.next();
-
-                        let ty = match (subtype, subtypes.next()) {
-                            (Some(subtype), None) => match &subtype.composite_type.inner {
-                                wasmparser::CompositeInnerType::Func(func_type) => FuncType::new(
-                                    func_type
-                                        .params()
-                                        .iter()
-                                        .copied()
-                                        .map(ValueType::from_value),
-                                    func_type
-                                        .results()
-                                        .iter()
-                                        .copied()
-                                        .map(ValueType::from_value),
-                                ),
-                                _ => unreachable!(),
-                            },
-                            _ => unimplemented!(),
-                        };
-
-                        types.push(ty);
-                    }
-                },
-                wasmparser::Payload::FunctionSection(section) => {
-                    for type_index in section {
-                        let type_index = type_index?;
-
-                        let ty = &types[type_index as usize];
-
-                        functions.push(ty.clone());
-                    }
-                },
-                wasmparser::Payload::TableSection(section) => {
-                    for table in section {
-                        let table = table?;
-                        tables.push(TableType::from_parsed(&table.ty)?);
-                    }
-                },
-                wasmparser::Payload::MemorySection(section) => {
-                    for memory in section {
-                        let memory = memory?;
-                        memories.push(MemoryType::from_parsed(&memory)?);
-                    }
-                },
-                wasmparser::Payload::GlobalSection(section) => {
-                    for global in section {
-                        let global = global?;
-                        globals.push(GlobalType::from_parsed(global.ty));
-                    }
-                },
-                wasmparser::Payload::TagSection(section) => {
-                    for tag in section {
-                        let tag = tag?;
-
-                        #[cfg(feature = "tracing")]
-                        tracing::trace!(?tag, "tag");
-                        #[cfg(not(feature = "tracing"))]
-                        let _ = tag;
+                    for ty in section.into_iter_err_on_gc_types() {
+                        types.push(Type::Func(Partial::Lazy(ty?)));
                     }
                 },
                 wasmparser::Payload::ImportSection(section) => {
@@ -194,28 +133,57 @@ impl ParsedModule {
                         let import = import?;
                         let ty = match import.ty {
                             wasmparser::TypeRef::Func(index) => {
-                                let sig = types[index as usize].clone().with_name(import.name);
-                                functions.push(sig.clone());
-                                ExternType::Func(sig)
+                                let Type::Func(ty) = &mut types[index as usize];
+                                let ty = ty.force(|ty| FuncType::from_parsed(ty))?;
+                                let func = ty.clone().with_name(import.name);
+                                functions.push(Partial::Eager(func.clone()));
+                                ExternType::Func(func)
                             },
                             wasmparser::TypeRef::Table(ty) => {
-                                tables.push(TableType::from_parsed(&ty)?);
-                                ExternType::Table(TableType::from_parsed(&ty)?)
+                                let table = TableType::from_parsed(&ty)?;
+                                tables.push(Partial::Eager(table));
+                                ExternType::Table(table)
                             },
                             wasmparser::TypeRef::Memory(ty) => {
-                                memories.push(MemoryType::from_parsed(&ty)?);
-                                ExternType::Memory(MemoryType::from_parsed(&ty)?)
+                                let memory = MemoryType::from_parsed(&ty)?;
+                                memories.push(Partial::Eager(memory));
+                                ExternType::Memory(memory)
                             },
                             wasmparser::TypeRef::Global(ty) => {
-                                globals.push(GlobalType::from_parsed(ty));
-                                ExternType::Global(GlobalType::from_parsed(ty))
+                                let global = GlobalType::from_parsed(&ty)?;
+                                globals.push(Partial::Eager(global));
+                                ExternType::Global(global)
                             },
                             wasmparser::TypeRef::Tag(_) => {
-                                unimplemented!("WebAssembly.Tag is not yet supported")
+                                anyhow::bail!(
+                                    "tag imports are not yet supported in the wasm_runtime_layer"
+                                )
                             },
                         };
 
                         imports.insert((import.module.to_string(), import.name.to_string()), ty);
+                    }
+                },
+                wasmparser::Payload::FunctionSection(section) => {
+                    for type_index in section {
+                        let type_index = type_index?;
+                        let Type::Func(ty) = &types[type_index as usize];
+                        functions.push(ty.clone());
+                    }
+                },
+                wasmparser::Payload::TableSection(section) => {
+                    for table in section {
+                        tables.push(Partial::Lazy(table?.ty));
+                    }
+                },
+                wasmparser::Payload::MemorySection(section) => {
+                    for memory in section {
+                        memories.push(Partial::Lazy(memory?));
+                    }
+                },
+                wasmparser::Payload::GlobalSection(section) => {
+                    for global in section {
+                        globals.push(Partial::Lazy(global?.ty));
                     }
                 },
                 wasmparser::Payload::ExportSection(section) => {
@@ -224,31 +192,32 @@ impl ParsedModule {
                         let index = export.index as usize;
                         let ty = match export.kind {
                             wasmparser::ExternalKind::Func => {
-                                ExternType::Func(functions[index].clone().with_name(export.name))
+                                let ty = functions[index].force(|ty| FuncType::from_parsed(ty))?;
+                                let func = ty.clone().with_name(export.name);
+                                ExternType::Func(func)
                             },
-                            wasmparser::ExternalKind::Table => ExternType::Table(tables[index]),
-                            wasmparser::ExternalKind::Memory => ExternType::Memory(memories[index]),
-                            wasmparser::ExternalKind::Global => ExternType::Global(globals[index]),
+                            wasmparser::ExternalKind::Table => {
+                                let table = tables[index].force(|ty| TableType::from_parsed(ty))?;
+                                ExternType::Table(*table)
+                            },
+                            wasmparser::ExternalKind::Memory => {
+                                let memory =
+                                    memories[index].force(|ty| MemoryType::from_parsed(ty))?;
+                                ExternType::Memory(*memory)
+                            },
+                            wasmparser::ExternalKind::Global => {
+                                let global =
+                                    globals[index].force(|ty| GlobalType::from_parsed(ty))?;
+                                ExternType::Global(*global)
+                            },
                             wasmparser::ExternalKind::Tag => {
-                                unimplemented!("WebAssembly.Tag is not yet supported")
+                                anyhow::bail!(
+                                    "tag exports are not yet supported in the wasm_runtime_layer"
+                                )
                             },
                         };
 
                         exports.insert(export.name.to_string(), ty);
-                    }
-                },
-                wasmparser::Payload::ElementSection(section) => {
-                    for element in section {
-                        let element = element?;
-
-                        #[cfg(feature = "tracing")]
-                        match element.kind {
-                            wasmparser::ElementKind::Passive => tracing::debug!("passive"),
-                            wasmparser::ElementKind::Active { .. } => tracing::debug!("active"),
-                            wasmparser::ElementKind::Declared => tracing::debug!("declared"),
-                        }
-                        #[cfg(not(feature = "tracing"))]
-                        let _ = element;
                     }
                 },
                 _ => (),
@@ -261,31 +230,83 @@ impl ParsedModule {
     }
 }
 
-trait ValueTypeFrom {
-    fn from_value(value: wasmparser::ValType) -> Self;
-    fn from_ref(ty: wasmparser::RefType) -> Self;
+enum Type<T> {
+    Func(T),
+}
+
+#[derive(Clone)]
+enum Partial<L, E> {
+    Lazy(L),
+    Eager(E),
+}
+
+impl<L, E> Partial<L, E> {
+    fn force(&mut self, eval: impl FnOnce(&mut L) -> anyhow::Result<E>) -> anyhow::Result<&mut E> {
+        match self {
+            Self::Eager(x) => Ok(x),
+            Self::Lazy(x) => {
+                *self = Self::Eager(eval(x)?);
+                // Safety: we have the only mutable reference and have just
+                //         overridden the variant to Self::Eager(...)
+                let Self::Eager(x) = self else {
+                    unsafe { std::hint::unreachable_unchecked() }
+                };
+                Ok(x)
+            },
+        }
+    }
+}
+
+trait ValueTypeFrom: Sized {
+    fn from_value(value: wasmparser::ValType) -> anyhow::Result<Self>;
+    fn from_ref(ty: wasmparser::RefType) -> anyhow::Result<Self>;
 }
 
 impl ValueTypeFrom for ValueType {
-    fn from_value(value: wasmparser::ValType) -> Self {
+    fn from_value(value: wasmparser::ValType) -> anyhow::Result<Self> {
         match value {
-            wasmparser::ValType::I32 => Self::I32,
-            wasmparser::ValType::I64 => Self::I64,
-            wasmparser::ValType::F32 => Self::F32,
-            wasmparser::ValType::F64 => Self::F64,
-            wasmparser::ValType::V128 => unimplemented!("v128 is not supported"),
+            wasmparser::ValType::I32 => Ok(Self::I32),
+            wasmparser::ValType::I64 => Ok(Self::I64),
+            wasmparser::ValType::F32 => Ok(Self::F32),
+            wasmparser::ValType::F64 => Ok(Self::F64),
+            wasmparser::ValType::V128 => {
+                anyhow::bail!("v128 is not yet supported in the wasm_runtime_layer")
+            },
             wasmparser::ValType::Ref(ty) => Self::from_ref(ty),
         }
     }
 
-    fn from_ref(ty: wasmparser::RefType) -> Self {
+    fn from_ref(ty: wasmparser::RefType) -> anyhow::Result<Self> {
         if ty.is_func_ref() {
-            Self::FuncRef
+            Ok(Self::FuncRef)
         } else if ty.is_extern_ref() {
-            Self::ExternRef
+            Ok(Self::ExternRef)
         } else {
-            unimplemented!("unsupported reference type {ty:?}")
+            anyhow::bail!("reference type {ty:?} is not yet supported in the wasm_runtime_layer")
         }
+    }
+}
+
+trait FuncTypeFrom: Sized {
+    fn from_parsed(value: &wasmparser::FuncType) -> anyhow::Result<Self>;
+}
+
+impl FuncTypeFrom for FuncType {
+    fn from_parsed(value: &wasmparser::FuncType) -> anyhow::Result<Self> {
+        let params = value
+            .params()
+            .iter()
+            .copied()
+            .map(ValueType::from_value)
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let results = value
+            .results()
+            .iter()
+            .copied()
+            .map(ValueType::from_value)
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        Ok(Self::new(params, results))
     }
 }
 
@@ -296,7 +317,7 @@ trait TableTypeFrom: Sized {
 impl TableTypeFrom for TableType {
     fn from_parsed(value: &wasmparser::TableType) -> anyhow::Result<Self> {
         Ok(Self::new(
-            ValueType::from_ref(value.element_type),
+            ValueType::from_ref(value.element_type)?,
             value.initial.try_into()?,
             match value.maximum {
                 None => None,
@@ -313,11 +334,11 @@ trait MemoryTypeFrom: Sized {
 impl MemoryTypeFrom for MemoryType {
     fn from_parsed(value: &wasmparser::MemoryType) -> anyhow::Result<Self> {
         if value.memory64 {
-            anyhow::bail!("memory64 is not yet supported");
+            anyhow::bail!("memory64 is not yet supported in the wasm_runtime_layer");
         }
 
         if value.shared {
-            anyhow::bail!("shared memory is not yet supported");
+            anyhow::bail!("shared memory is not yet supported in the wasm_runtime_layer");
         }
 
         Ok(Self::new(
@@ -330,13 +351,17 @@ impl MemoryTypeFrom for MemoryType {
     }
 }
 
-trait GlobalTypeFrom {
-    fn from_parsed(value: wasmparser::GlobalType) -> Self;
+trait GlobalTypeFrom: Sized {
+    #[allow(clippy::trivially_copy_pass_by_ref)]
+    fn from_parsed(value: &wasmparser::GlobalType) -> anyhow::Result<Self>;
 }
 
 impl GlobalTypeFrom for GlobalType {
-    fn from_parsed(value: wasmparser::GlobalType) -> Self {
-        Self::new(ValueType::from_value(value.content_type), value.mutable)
+    fn from_parsed(value: &wasmparser::GlobalType) -> anyhow::Result<Self> {
+        Ok(Self::new(
+            ValueType::from_value(value.content_type)?,
+            value.mutable,
+        ))
     }
 }
 
