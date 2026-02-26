@@ -125,7 +125,7 @@ impl WasmTable<Engine> for Table {
             let table = self.table.bind(py);
 
             #[cfg(feature = "tracing")]
-            tracing::debug!(table = %table, ?self.ty, index, ?value, "Table::set");
+            tracing::debug!(table = %table, ?self.ty, index, ?elem, "Table::set");
 
             let elem = elem.to_py(py)?;
 
