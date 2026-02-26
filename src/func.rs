@@ -7,15 +7,15 @@ use std::{
 use pyo3::{exceptions::PyRuntimeError, prelude::*, types::PyTuple, PyTypeInfo};
 use pyo3_error::PyErrChain;
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, Value, WasmFunc, WasmStoreContext},
+    backend::{AsContext, AsContextMut, Val, WasmFunc, WasmStoreContext},
     FuncType,
 };
 use wobbly::sync::Wobbly;
 
 use crate::{
-    conversion::{py_to_js_proxy, ToPy, ValueExt},
+    conversion::{py_to_js_proxy, ToPy, ValExt},
     store::StoreContextMut,
-    Engine,
+    ArgumentVec, Engine,
 };
 
 /// A bound function, which may be an export from a WASM [`Instance`] or a host
@@ -49,7 +49,7 @@ impl WasmFunc<Engine> for Func {
         func: impl 'static
             + Send
             + Sync
-            + Fn(StoreContextMut<T>, &[Value<Engine>], &mut [Value<Engine>]) -> anyhow::Result<()>,
+            + Fn(StoreContextMut<T>, &[Val<Engine>], &mut [Val<Engine>]) -> anyhow::Result<()>,
     ) -> Self {
         Python::attach(|py| -> Result<Self, PyErr> {
             #[cfg(feature = "tracing")]
@@ -84,9 +84,9 @@ impl WasmFunc<Engine> for Func {
                     .params()
                     .iter()
                     .zip(args.iter())
-                    .map(|(ty, arg)| Value::from_py_typed(arg, *ty))
-                    .collect::<Result<Vec<_>, _>>()?;
-                let mut results = vec![Value::I32(0); ty.results().len()];
+                    .map(|(ty, arg)| Val::from_py_typed(arg, *ty))
+                    .collect::<Result<ArgumentVec<_>, _>>()?;
+                let mut results = vec![Val::I32(0); ty.results().len()];
 
                 #[cfg(feature = "tracing")]
                 let _span = tracing::debug_span!("call_host", ?args, ?ty).entered();
@@ -105,10 +105,16 @@ impl WasmFunc<Engine> for Func {
 
                 let results = match results.as_slice() {
                     [] => py.None(),
-                    [res] => res.to_py(py),
-                    results => PyTuple::new(py, results.iter().map(|res| res.to_py(py)))?
-                        .into_any()
-                        .unbind(),
+                    [res] => res.to_py(py)?,
+                    results => PyTuple::new(
+                        py,
+                        results
+                            .iter()
+                            .map(|res| res.to_py(py))
+                            .collect::<Result<ArgumentVec<_>, PyErr>>()?,
+                    )?
+                    .into_any()
+                    .unbind(),
                 };
 
                 Ok(results)
@@ -140,8 +146,8 @@ impl WasmFunc<Engine> for Func {
     fn call<T>(
         &self,
         mut ctx: impl AsContextMut<Engine>,
-        args: &[Value<Engine>],
-        results: &mut [Value<Engine>],
+        args: &[Val<Engine>],
+        results: &mut [Val<Engine>],
     ) -> anyhow::Result<()> {
         Python::attach(|py| {
             let store: StoreContextMut<_> = ctx.as_context_mut();
@@ -157,7 +163,10 @@ impl WasmFunc<Engine> for Func {
             assert_eq!(self.ty.params().len(), args.len());
             assert_eq!(self.ty.results().len(), results.len());
 
-            let args = args.iter().map(|arg| arg.to_py(py));
+            let args = args
+                .iter()
+                .map(|arg| arg.to_py(py))
+                .collect::<Result<ArgumentVec<_>, PyErr>>()?;
             let args = PyTuple::new(py, args)?;
 
             let res = self.pyfunc.bind(py).call1(args)?;
@@ -167,7 +176,7 @@ impl WasmFunc<Engine> for Func {
 
             match (self.ty.results(), results) {
                 ([], []) => (),
-                ([ty], [result]) => *result = Value::from_py_typed(res, *ty)?,
+                ([ty], [result]) => *result = Val::from_py_typed(res, *ty)?,
                 (tys, results) => {
                     let res: Bound<PyTuple> = PyTuple::type_object(py)
                         .call1((res,))?
@@ -184,7 +193,7 @@ impl WasmFunc<Engine> for Func {
                         .zip(results.iter_mut())
                         .zip(res.iter())
                     {
-                        *result = Value::from_py_typed(value, *ty)?;
+                        *result = Val::from_py_typed(value, *ty)?;
                     }
                 },
             }
@@ -195,8 +204,8 @@ impl WasmFunc<Engine> for Func {
 }
 
 impl ToPy for Func {
-    fn to_py(&self, py: Python) -> Py<PyAny> {
-        self.pyfunc.clone_ref(py)
+    fn to_py(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
+        Ok(self.pyfunc.clone_ref(py))
     }
 }
 

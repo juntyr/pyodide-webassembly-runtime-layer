@@ -4,11 +4,12 @@ use fxhash::FxHashMap;
 use pyo3::{prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
     backend::WasmModule, ExportType, ExternType, FuncType, GlobalType, ImportType, MemoryType,
-    TableType, ValueType,
+    RefType, TableType, ValType,
 };
 
 use crate::{
-    conversion::js_uint8_array_new, features::UnsupportedWasmFeatureExtensionError, Engine,
+    conversion::js_uint8_array_new, features::UnsupportedWasmFeatureExtensionError, ArgumentVec,
+    Engine,
 };
 
 #[derive(Debug)]
@@ -260,25 +261,38 @@ impl<L, E> Partial<L, E> {
 }
 
 trait ValueTypeFrom: Sized {
-    fn from_value(value: wasmparser::ValType) -> anyhow::Result<Self>;
-    fn from_ref(ty: wasmparser::RefType) -> anyhow::Result<Self>;
+    fn from_parsed(value: wasmparser::ValType) -> anyhow::Result<Self>;
 }
 
-impl ValueTypeFrom for ValueType {
-    fn from_value(value: wasmparser::ValType) -> anyhow::Result<Self> {
+impl ValueTypeFrom for ValType {
+    fn from_parsed(value: wasmparser::ValType) -> anyhow::Result<Self> {
         match value {
             wasmparser::ValType::I32 => Ok(Self::I32),
             wasmparser::ValType::I64 => Ok(Self::I64),
             wasmparser::ValType::F32 => Ok(Self::F32),
             wasmparser::ValType::F64 => Ok(Self::F64),
-            wasmparser::ValType::V128 => {
-                anyhow::bail!("v128 is not yet supported in the wasm_runtime_layer")
+            wasmparser::ValType::V128 => Ok(Self::V128),
+            wasmparser::ValType::Ref(ty) => {
+                if ty.is_func_ref() {
+                    Ok(Self::FuncRef)
+                } else if ty.is_extern_ref() {
+                    Ok(Self::ExternRef)
+                } else {
+                    anyhow::bail!(
+                        "reference type {ty:?} is not yet supported in the wasm_runtime_layer"
+                    )
+                }
             },
-            wasmparser::ValType::Ref(ty) => Self::from_ref(ty),
         }
     }
+}
 
-    fn from_ref(ty: wasmparser::RefType) -> anyhow::Result<Self> {
+trait RefTypeFrom: Sized {
+    fn from_parsed(value: wasmparser::RefType) -> anyhow::Result<Self>;
+}
+
+impl RefTypeFrom for RefType {
+    fn from_parsed(ty: wasmparser::RefType) -> anyhow::Result<Self> {
         if ty.is_func_ref() {
             Ok(Self::FuncRef)
         } else if ty.is_extern_ref() {
@@ -299,14 +313,14 @@ impl FuncTypeFrom for FuncType {
             .params()
             .iter()
             .copied()
-            .map(ValueType::from_value)
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .map(ValType::from_parsed)
+            .collect::<anyhow::Result<ArgumentVec<_>>>()?;
         let results = value
             .results()
             .iter()
             .copied()
-            .map(ValueType::from_value)
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .map(ValType::from_parsed)
+            .collect::<anyhow::Result<ArgumentVec<_>>>()?;
 
         Ok(Self::new(params, results))
     }
@@ -319,7 +333,7 @@ trait TableTypeFrom: Sized {
 impl TableTypeFrom for TableType {
     fn from_parsed(value: &wasmparser::TableType) -> anyhow::Result<Self> {
         Ok(Self::new(
-            ValueType::from_ref(value.element_type)?,
+            RefType::from_parsed(value.element_type)?,
             value.initial.try_into()?,
             match value.maximum {
                 None => None,
@@ -360,7 +374,7 @@ trait GlobalTypeFrom: Sized {
 impl GlobalTypeFrom for GlobalType {
     fn from_parsed(value: &wasmparser::GlobalType) -> anyhow::Result<Self> {
         Ok(Self::new(
-            ValueType::from_value(value.content_type)?,
+            ValType::from_parsed(value.content_type)?,
             value.mutable,
         ))
     }

@@ -91,7 +91,7 @@ fn create_imports_object<'py>(
             #[cfg(feature = "tracing")]
             tracing::trace!(?module, ?name, ?import, "import");
 
-            let import = import.to_py(py);
+            let import = import.to_py(py)?;
 
             #[cfg(feature = "tracing")]
             tracing::trace!(module, name, "export");

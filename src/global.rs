@@ -1,11 +1,11 @@
 use pyo3::{intern, prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, Value, WasmGlobal},
+    backend::{AsContext, AsContextMut, Val, WasmGlobal},
     GlobalType,
 };
 
 use crate::{
-    conversion::{create_js_object, instanceof, ToPy, ValueExt, ValueTypeExt},
+    conversion::{create_js_object, instanceof, ToPy, ValExt, ValTypeExt},
     Engine,
 };
 
@@ -32,21 +32,18 @@ impl Clone for Global {
 }
 
 impl WasmGlobal<Engine> for Global {
-    fn new(_ctx: impl AsContextMut<Engine>, value: Value<Engine>, mutable: bool) -> Self {
+    fn new(_ctx: impl AsContextMut<Engine>, value: Val<Engine>, mutable: bool) -> Self {
         Python::attach(|py| -> Result<Self, PyErr> {
             #[cfg(feature = "tracing")]
             tracing::debug!(?value, mutable, "Global::new");
 
-            let ty = GlobalType::new(ValueExt::ty(&value), mutable);
+            let ty = GlobalType::new(value.ty(), mutable);
 
             let desc = create_js_object(py)?;
-            desc.setattr(
-                intern!(py, "value"),
-                ValueExt::ty(&value).as_js_descriptor(),
-            )?;
+            desc.setattr(intern!(py, "value"), value.ty().as_js_descriptor())?;
             desc.setattr(intern!(py, "mutable"), mutable)?;
 
-            let value = value.to_py(py);
+            let value = value.to_py(py)?;
 
             let global = web_assembly_global_new(py)?.call1((desc, value))?;
 
@@ -62,7 +59,7 @@ impl WasmGlobal<Engine> for Global {
         self.ty
     }
 
-    fn set(&self, _ctx: impl AsContextMut<Engine>, new_value: Value<Engine>) -> anyhow::Result<()> {
+    fn set(&self, _ctx: impl AsContextMut<Engine>, new_value: Val<Engine>) -> anyhow::Result<()> {
         if !self.ty.mutable() {
             return Err(anyhow::anyhow!("Global is not mutable"));
         }
@@ -73,7 +70,7 @@ impl WasmGlobal<Engine> for Global {
             #[cfg(feature = "tracing")]
             tracing::debug!(global = %global, ?self.ty, ?new_value, "Global::set");
 
-            let new_value = new_value.to_py(py);
+            let new_value = new_value.to_py(py)?;
 
             global.setattr(intern!(py, "value"), new_value)?;
 
@@ -81,7 +78,7 @@ impl WasmGlobal<Engine> for Global {
         })
     }
 
-    fn get(&self, _ctx: impl AsContextMut<Engine>) -> Value<Engine> {
+    fn get(&self, _ctx: impl AsContextMut<Engine>) -> Val<Engine> {
         Python::attach(|py| {
             let global = self.global.bind(py);
 
@@ -90,18 +87,18 @@ impl WasmGlobal<Engine> for Global {
 
             let value = global.getattr(intern!(py, "value"))?;
 
-            Value::from_py_typed(value, self.ty.content())
+            Val::from_py_typed(value, self.ty.content())
         })
         .expect("Global::get should not fail")
     }
 }
 
 impl ToPy for Global {
-    fn to_py(&self, py: Python) -> Py<PyAny> {
+    fn to_py(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
         tracing::trace!(value = %self.global, ?self.ty, "Global::to_py");
 
-        self.global.clone_ref(py)
+        Ok(self.global.clone_ref(py))
     }
 }
 

@@ -74,6 +74,7 @@
 //! [`Func`]: https://docs.rs/wasm_runtime_layer/0.6/wasm_runtime_layer/struct.Func.html
 //! [`Store`]: https://docs.rs/wasm_runtime_layer/0.6/wasm_runtime_layer/struct.Store.html
 
+use smallvec::SmallVec;
 use wasm_runtime_layer::backend::WasmEngine;
 
 mod conversion;
@@ -95,6 +96,13 @@ pub use memory::Memory;
 pub use module::Module;
 pub use store::{Store, StoreContext, StoreContextMut};
 pub use table::Table;
+
+/// The default amount of arguments and return values for which to allocate
+/// stack space.
+const DEFAULT_ARGUMENT_SIZE: usize = 4;
+
+/// A vector which allocates up to the default number of arguments on the stack.
+type ArgumentVec<T> = SmallVec<[T; DEFAULT_ARGUMENT_SIZE]>;
 
 #[derive(Default, Debug, Clone)]
 /// Runtime for [`WebAssembly`] web runtime.
