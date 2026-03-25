@@ -1,5 +1,5 @@
 (function() {
-    const implementors = Object.fromEntries([["pyodide_webassembly_runtime_layer",[["impl <a class=\"trait\" href=\"https://docs.rs/wasm_runtime_layer/0.6/wasm_runtime_layer/backend/trait.WasmFunc.html\" title=\"trait wasm_runtime_layer::backend::WasmFunc\">WasmFunc</a>&lt;<a class=\"struct\" href=\"pyodide_webassembly_runtime_layer/struct.Engine.html\" title=\"struct pyodide_webassembly_runtime_layer::Engine\">Engine</a>&gt; for <a class=\"struct\" href=\"pyodide_webassembly_runtime_layer/struct.Func.html\" title=\"struct pyodide_webassembly_runtime_layer::Func\">Func</a>",0]]]]);
+    const implementors = Object.fromEntries([["pyodide_webassembly_runtime_layer",[["impl <a class=\"trait\" href=\"https://docs.rs/wasm_runtime_layer/0.7/wasm_runtime_layer/backend/trait.WasmFunc.html\" title=\"trait wasm_runtime_layer::backend::WasmFunc\">WasmFunc</a>&lt;<a class=\"struct\" href=\"pyodide_webassembly_runtime_layer/struct.Engine.html\" title=\"struct pyodide_webassembly_runtime_layer::Engine\">Engine</a>&gt; for <a class=\"struct\" href=\"pyodide_webassembly_runtime_layer/struct.Func.html\" title=\"struct pyodide_webassembly_runtime_layer::Func\">Func</a>",0]]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
