@@ -60,7 +60,7 @@
 //!   dropped or references to the [`Func`] are dropped, additional bookkeeping
 //!   data is required until both have been dropped.
 //!
-//! [`wasm_runtime_layer`]: https://docs.rs/wasm_runtime_layer/0.6/
+//! [`wasm_runtime_layer`]: https://docs.rs/wasm_runtime_layer/0.7/
 //! [`WebAssembly`]: https://developer.mozilla.org/en-US/docs/WebAssembly
 //! [`Pyodide`]: https://pyodide.org/en/stable/
 //! [`js_wasm_runtime_layer`]: https://docs.rs/js_wasm_runtime_layer/
@@ -69,10 +69,10 @@
 //! [`js`]: https://pyodide.org/en/stable/usage/api/python-api.html
 //! [`PyO3`]: https://docs.rs/pyo3/0.28/
 //! [new-issue]: https://github.com/juntyr/pyodide-webassembly-runtime-layer/issues/new
-//! [`Func::new`]: https://docs.rs/wasm_runtime_layer/0.6/wasm_runtime_layer/struct.Func.html#method.new
+//! [`Func::new`]: https://docs.rs/wasm_runtime_layer/0.7/wasm_runtime_layer/struct.Func.html#method.new
 //! [`wobbly`]: https://docs.rs/wobbly/0.1/
-//! [`Func`]: https://docs.rs/wasm_runtime_layer/0.6/wasm_runtime_layer/struct.Func.html
-//! [`Store`]: https://docs.rs/wasm_runtime_layer/0.6/wasm_runtime_layer/struct.Store.html
+//! [`Func`]: https://docs.rs/wasm_runtime_layer/0.7/wasm_runtime_layer/struct.Func.html
+//! [`Store`]: https://docs.rs/wasm_runtime_layer/0.7/wasm_runtime_layer/struct.Store.html
 
 use smallvec::SmallVec;
 use wasm_runtime_layer::backend::WasmEngine;
