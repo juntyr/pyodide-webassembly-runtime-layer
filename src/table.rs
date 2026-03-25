@@ -1,11 +1,11 @@
 use pyo3::{intern, prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, Value, WasmTable},
-    TableType, ValueType,
+    backend::{AsContext, AsContextMut, Ref, WasmTable},
+    RefType, TableType,
 };
 
 use crate::{
-    conversion::{create_js_object, instanceof, ToPy, ValueExt, ValueTypeExt},
+    conversion::{create_js_object, instanceof, RefExt, RefTypeExt, ToPy},
     Engine,
 };
 
@@ -35,7 +35,7 @@ impl WasmTable<Engine> for Table {
     fn new(
         _ctx: impl AsContextMut<Engine>,
         ty: TableType,
-        init: Value<Engine>,
+        init: Ref<Engine>,
     ) -> anyhow::Result<Self> {
         Python::attach(|py| -> anyhow::Result<Self> {
             #[cfg(feature = "tracing")]
@@ -48,7 +48,7 @@ impl WasmTable<Engine> for Table {
                 desc.setattr(intern!(py, "maximum"), max)?;
             }
 
-            let init = init.to_py(py);
+            let init = init.to_py(py)?;
 
             let table = web_assembly_table_new(py)?.call1((desc, init))?;
 
@@ -82,7 +82,7 @@ impl WasmTable<Engine> for Table {
         &self,
         _ctx: impl AsContextMut<Engine>,
         delta: u32,
-        init: Value<Engine>,
+        init: Ref<Engine>,
     ) -> anyhow::Result<u32> {
         Python::attach(|py| {
             let table = self.table.bind(py);
@@ -90,7 +90,7 @@ impl WasmTable<Engine> for Table {
             #[cfg(feature = "tracing")]
             tracing::debug!(table = %table, ?self.ty, delta, ?init, "Table::grow");
 
-            let init = init.to_py(py);
+            let init = init.to_py(py)?;
 
             let old_len = table
                 .call_method1(intern!(py, "grow"), (delta, init))?
@@ -100,8 +100,8 @@ impl WasmTable<Engine> for Table {
         })
     }
 
-    /// Returns the table element value at `index`.
-    fn get(&self, _ctx: impl AsContextMut<Engine>, index: u32) -> Option<Value<Engine>> {
+    /// Returns the table element at `index`.
+    fn get(&self, _ctx: impl AsContextMut<Engine>, index: u32) -> Option<Ref<Engine>> {
         Python::attach(|py| {
             let table = self.table.bind(py);
 
@@ -110,28 +110,26 @@ impl WasmTable<Engine> for Table {
 
             let value = table.call_method1(intern!(py, "get"), (index,)).ok()?;
 
-            Some(
-                Value::from_py_typed(value, self.ty.element()).expect("Table::get should not fail"),
-            )
+            Some(Ref::from_py_typed(value, self.ty.element()).expect("Table::get should not fail"))
         })
     }
 
-    /// Sets the value of this table at `index`.
+    /// Sets the element of this table at `index`.
     fn set(
         &self,
         _ctx: impl AsContextMut<Engine>,
         index: u32,
-        value: Value<Engine>,
+        elem: Ref<Engine>,
     ) -> anyhow::Result<()> {
         Python::attach(|py| {
             let table = self.table.bind(py);
 
             #[cfg(feature = "tracing")]
-            tracing::debug!(table = %table, ?self.ty, index, ?value, "Table::set");
+            tracing::debug!(table = %table, ?self.ty, index, ?elem, "Table::set");
 
-            let value = value.to_py(py);
+            let elem = elem.to_py(py)?;
 
-            table.call_method1(intern!(py, "set"), (index, value))?;
+            table.call_method1(intern!(py, "set"), (index, elem))?;
 
             Ok(())
         })
@@ -139,11 +137,11 @@ impl WasmTable<Engine> for Table {
 }
 
 impl ToPy for Table {
-    fn to_py(&self, py: Python) -> Py<PyAny> {
+    fn to_py(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
         tracing::trace!(table = %self.table, ?self.ty, "Table::to_py");
 
-        self.table.clone_ref(py)
+        Ok(self.table.clone_ref(py))
     }
 }
 
@@ -160,7 +158,7 @@ impl Table {
         let table_length: u32 = table.getattr(intern!(table.py(), "length"))?.extract()?;
 
         assert!(table_length >= ty.minimum());
-        assert_eq!(ty.element(), ValueType::FuncRef);
+        assert_eq!(ty.element(), RefType::FuncRef);
 
         Ok(Self {
             table: table.unbind(),

@@ -60,7 +60,7 @@
 //!   dropped or references to the [`Func`] are dropped, additional bookkeeping
 //!   data is required until both have been dropped.
 //!
-//! [`wasm_runtime_layer`]: https://docs.rs/wasm_runtime_layer/0.6/
+//! [`wasm_runtime_layer`]: https://docs.rs/wasm_runtime_layer/0.7/
 //! [`WebAssembly`]: https://developer.mozilla.org/en-US/docs/WebAssembly
 //! [`Pyodide`]: https://pyodide.org/en/stable/
 //! [`js_wasm_runtime_layer`]: https://docs.rs/js_wasm_runtime_layer/
@@ -69,11 +69,12 @@
 //! [`js`]: https://pyodide.org/en/stable/usage/api/python-api.html
 //! [`PyO3`]: https://docs.rs/pyo3/0.28/
 //! [new-issue]: https://github.com/juntyr/pyodide-webassembly-runtime-layer/issues/new
-//! [`Func::new`]: https://docs.rs/wasm_runtime_layer/0.6/wasm_runtime_layer/struct.Func.html#method.new
+//! [`Func::new`]: https://docs.rs/wasm_runtime_layer/0.7/wasm_runtime_layer/struct.Func.html#method.new
 //! [`wobbly`]: https://docs.rs/wobbly/0.1/
-//! [`Func`]: https://docs.rs/wasm_runtime_layer/0.6/wasm_runtime_layer/struct.Func.html
-//! [`Store`]: https://docs.rs/wasm_runtime_layer/0.6/wasm_runtime_layer/struct.Store.html
+//! [`Func`]: https://docs.rs/wasm_runtime_layer/0.7/wasm_runtime_layer/struct.Func.html
+//! [`Store`]: https://docs.rs/wasm_runtime_layer/0.7/wasm_runtime_layer/struct.Store.html
 
+use smallvec::SmallVec;
 use wasm_runtime_layer::backend::WasmEngine;
 
 mod conversion;
@@ -95,6 +96,13 @@ pub use memory::Memory;
 pub use module::Module;
 pub use store::{Store, StoreContext, StoreContextMut};
 pub use table::Table;
+
+/// The default amount of arguments and return values for which to allocate
+/// stack space.
+const DEFAULT_ARGUMENT_SIZE: usize = 4;
+
+/// A vector which allocates up to the default number of arguments on the stack.
+type ArgumentVec<T> = SmallVec<[T; DEFAULT_ARGUMENT_SIZE]>;
 
 #[derive(Default, Debug, Clone)]
 /// Runtime for [`WebAssembly`] web runtime.

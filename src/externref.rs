@@ -66,8 +66,8 @@ impl WasmExternRef<Engine> for ExternRef {
 }
 
 impl ToPy for ExternRef {
-    fn to_py(&self, py: Python) -> Py<PyAny> {
-        self.guest.clone_ref(py)
+    fn to_py(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
+        Ok(self.guest.clone_ref(py))
     }
 }
 

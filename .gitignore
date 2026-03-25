@@ -2,3 +2,5 @@
 /Cargo.lock
 
 /binaryen*
+
+**/.DS_Store

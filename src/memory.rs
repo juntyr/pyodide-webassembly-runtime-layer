@@ -139,11 +139,11 @@ impl WasmMemory<Engine> for Memory {
 }
 
 impl ToPy for Memory {
-    fn to_py(&self, py: Python) -> Py<PyAny> {
+    fn to_py(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
         tracing::trace!(value = %self.memory.bind(py), ?self.ty, "Memory::to_py");
 
-        self.memory.clone_ref(py)
+        Ok(self.memory.clone_ref(py))
     }
 }
 

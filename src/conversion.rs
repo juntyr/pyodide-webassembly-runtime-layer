@@ -1,11 +1,14 @@
-use std::convert::Infallible;
-
 use pyo3::{
-    exceptions::PyRuntimeError, intern, prelude::*, sync::PyOnceLock, types::IntoPyDict, PyTypeInfo,
+    exceptions::{PyRuntimeError, PyValueError},
+    intern,
+    prelude::*,
+    sync::PyOnceLock,
+    types::IntoPyDict,
+    PyTypeInfo,
 };
 use wasm_runtime_layer::{
-    backend::{Extern, Value},
-    ValueType,
+    backend::{Extern, Ref, Val},
+    RefType, ValType,
 };
 
 use crate::{Engine, ExternRef};
@@ -13,36 +16,35 @@ use crate::{Engine, ExternRef};
 /// Converts a Rust type to Python
 pub trait ToPy {
     /// Convert this value to Python
-    fn to_py(&self, py: Python) -> Py<PyAny>;
+    fn to_py(&self, py: Python) -> Result<Py<PyAny>, PyErr>;
 }
 
-impl ToPy for Value<Engine> {
-    fn to_py(&self, py: Python) -> Py<PyAny> {
-        fn into_pyobject_infallible<
-            'py,
-            T: IntoPyObject<'py, Output = Bound<'py, S>, Error = Infallible>,
-            S,
-        >(
-            py: Python<'py>,
-            x: T,
-        ) -> Py<PyAny> {
-            match x.into_pyobject(py) {
-                Ok(x) => x.into_any().unbind(),
-                Err(e) => match e {},
-            }
-        }
-
+impl ToPy for Val<Engine> {
+    fn to_py(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
         tracing::trace!(ty = ?self.ty(), "Value::to_py");
 
         match self {
-            Self::I32(v) => into_pyobject_infallible(py, v),
+            Self::I32(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
             // WebAssembly explicitly requires all i64's to be a BigInt
             // Pyodide auto-converts BigInts, so we wrap it in an Object
-            Self::I64(v) => i64_to_js_bigint(py, *v).unbind(),
-            Self::F32(v) => into_pyobject_infallible(py, v),
-            Self::F64(v) => into_pyobject_infallible(py, v),
-            Self::FuncRef(None) | Self::ExternRef(None) => py.None(),
+            Self::I64(v) => i64_to_js_bigint(py, *v).map(Bound::unbind),
+            Self::F32(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+            Self::F64(v) => Ok(v.into_pyobject(py)?.into_any().unbind()),
+            Self::V128(_) => Err(PyValueError::new_err(
+                "v128 values are not supported in the pyodide-webassembly-runtime-layer backend",
+            )),
+            Self::FuncRef(None) | Self::ExternRef(None) => Ok(py.None()),
+            Self::FuncRef(Some(func)) => func.to_py(py),
+            Self::ExternRef(Some(r#ref)) => r#ref.to_py(py),
+        }
+    }
+}
+
+impl ToPy for Ref<Engine> {
+    fn to_py(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
+        match self {
+            Self::FuncRef(None) | Self::ExternRef(None) => Ok(py.None()),
             Self::FuncRef(Some(func)) => func.to_py(py),
             Self::ExternRef(Some(r#ref)) => r#ref.to_py(py),
         }
@@ -50,7 +52,7 @@ impl ToPy for Value<Engine> {
 }
 
 impl ToPy for Extern<Engine> {
-    fn to_py(&self, py: Python) -> Py<PyAny> {
+    fn to_py(&self, py: Python) -> Result<Py<PyAny>, PyErr> {
         #[cfg(feature = "tracing")]
         tracing::trace!("Extern::to_py");
 
@@ -63,35 +65,23 @@ impl ToPy for Extern<Engine> {
     }
 }
 
-pub trait ValueExt: Sized {
-    /// Convert a value to its type
-    fn ty(&self) -> ValueType;
-
-    /// Convert the [`PyAny`] value into a Value of the supplied type
-    fn from_py_typed(value: Bound<PyAny>, ty: ValueType) -> Result<Self, PyErr>;
+pub trait ValExt: Sized {
+    /// Convert the [`PyAny`] value into a [`Val`] of the supplied type
+    fn from_py_typed(value: Bound<PyAny>, ty: ValType) -> Result<Self, PyErr>;
 }
 
-impl ValueExt for Value<Engine> {
-    /// Convert a value to its type
-    fn ty(&self) -> ValueType {
-        match self {
-            Self::I32(_) => ValueType::I32,
-            Self::I64(_) => ValueType::I64,
-            Self::F32(_) => ValueType::F32,
-            Self::F64(_) => ValueType::F64,
-            Self::FuncRef(_) => ValueType::FuncRef,
-            Self::ExternRef(_) => ValueType::ExternRef,
-        }
-    }
-
-    fn from_py_typed(value: Bound<PyAny>, ty: ValueType) -> Result<Self, PyErr> {
+impl ValExt for Val<Engine> {
+    fn from_py_typed(value: Bound<PyAny>, ty: ValType) -> Result<Self, PyErr> {
         match ty {
-            ValueType::I32 => Ok(Self::I32(value.extract()?)),
+            ValType::I32 => Ok(Self::I32(value.extract()?)),
             // Try to unwrap a number, BigInt, or Object-wrapped BigInt
-            ValueType::I64 => Ok(Self::I64(try_i64_from_js_bigint(value)?)),
-            ValueType::F32 => Ok(Self::F32(value.extract()?)),
-            ValueType::F64 => Ok(Self::F64(value.extract()?)),
-            ValueType::ExternRef => {
+            ValType::I64 => Ok(Self::I64(try_i64_from_js_bigint(value)?)),
+            ValType::F32 => Ok(Self::F32(value.extract()?)),
+            ValType::F64 => Ok(Self::F64(value.extract()?)),
+            ValType::V128 => Err(PyValueError::new_err(
+                "v128 values are not supported in the pyodide-webassembly-runtime-layer backend",
+            )),
+            ValType::ExternRef => {
                 if value.is_none() {
                     Ok(Self::ExternRef(None))
                 } else {
@@ -100,7 +90,7 @@ impl ValueExt for Value<Engine> {
                     ))))
                 }
             },
-            ValueType::FuncRef => {
+            ValType::FuncRef => {
                 if value.is_none() {
                     Ok(Self::FuncRef(None))
                 } else {
@@ -114,27 +104,75 @@ impl ValueExt for Value<Engine> {
     }
 }
 
-pub trait ValueTypeExt {
+pub trait ValTypeExt {
     /// Converts this type into the canonical ABI kind
     ///
     /// See: <https://webassembly.github.io/spec/js-api/#globals>
     fn as_js_descriptor(&self) -> &str;
 }
 
-impl ValueTypeExt for ValueType {
+impl ValTypeExt for ValType {
     fn as_js_descriptor(&self) -> &str {
         match self {
             Self::I32 => "i32",
             Self::I64 => "i64",
             Self::F32 => "f32",
             Self::F64 => "f64",
+            Self::V128 => "v128",
             Self::FuncRef => "anyfunc",
             Self::ExternRef => "externref",
         }
     }
 }
 
-fn i64_to_js_bigint(py: Python, v: i64) -> Bound<PyAny> {
+pub trait RefExt: Sized {
+    /// Convert the [`PyAny`] value into a [`Ref`] of the supplied type
+    fn from_py_typed(value: Bound<PyAny>, ty: RefType) -> Result<Self, PyErr>;
+}
+
+impl RefExt for Ref<Engine> {
+    fn from_py_typed(value: Bound<PyAny>, ty: RefType) -> Result<Self, PyErr> {
+        match ty {
+            RefType::ExternRef => {
+                if value.is_none() {
+                    Ok(Self::ExternRef(None))
+                } else {
+                    Ok(Self::ExternRef(Some(ExternRef::from_exported_externref(
+                        value,
+                    ))))
+                }
+            },
+            RefType::FuncRef => {
+                if value.is_none() {
+                    Ok(Self::FuncRef(None))
+                } else {
+                    Err(PyRuntimeError::new_err(
+                        "conversion to a function outside of a module export is not permitted as \
+                         its type signature is unknown",
+                    ))
+                }
+            },
+        }
+    }
+}
+
+pub trait RefTypeExt {
+    /// Converts this type into the canonical ABI kind
+    ///
+    /// See: <https://webassembly.github.io/spec/js-api/#globals>
+    fn as_js_descriptor(&self) -> &str;
+}
+
+impl RefTypeExt for RefType {
+    fn as_js_descriptor(&self) -> &str {
+        match self {
+            Self::FuncRef => "anyfunc",
+            Self::ExternRef => "externref",
+        }
+    }
+}
+
+fn i64_to_js_bigint(py: Python, v: i64) -> Result<Bound<PyAny>, PyErr> {
     fn object_wrapped_bigint(py: Python<'_>) -> Result<&Bound<'_, PyAny>, PyErr> {
         static OBJECT_WRAPPED_BIGINT: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
 
@@ -153,9 +191,7 @@ fn i64_to_js_bigint(py: Python, v: i64) -> Bound<PyAny> {
             .map(|x| x.bind(py))
     }
 
-    let bigint = (|| object_wrapped_bigint(py)?.call1((v,)))();
-
-    bigint.expect("conversion from i64 to Object(BigInt(v)) should not fail")
+    object_wrapped_bigint(py)?.call1((v,))
 }
 
 fn try_i64_from_js_bigint(v: Bound<PyAny>) -> Result<i64, PyErr> {
