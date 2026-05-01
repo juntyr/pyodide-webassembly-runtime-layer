@@ -77,6 +77,8 @@
 use smallvec::SmallVec;
 use wasm_runtime_layer::backend::WasmEngine;
 
+use ::indexmap as _;
+
 mod conversion;
 mod externref;
 mod features;
