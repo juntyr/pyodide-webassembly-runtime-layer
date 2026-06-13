@@ -1,12 +1,12 @@
 use pyo3::{intern, prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, Ref, WasmTable},
     RefType, TableType,
+    backend::{AsContext, AsContextMut, Ref, WasmTable},
 };
 
 use crate::{
-    conversion::{create_js_object, instanceof, RefExt, RefTypeExt, ToPy},
     Engine,
+    conversion::{RefExt, RefTypeExt, ToPy, create_js_object, instanceof},
 };
 
 #[derive(Debug)]

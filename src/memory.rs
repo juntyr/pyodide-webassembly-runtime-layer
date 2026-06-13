@@ -1,12 +1,12 @@
 use pyo3::{intern, prelude::*, sync::PyOnceLock, types::PyBytes};
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, WasmMemory},
     MemoryType,
+    backend::{AsContext, AsContextMut, WasmMemory},
 };
 
 use crate::{
-    conversion::{create_js_object, instanceof, js_uint8_array_new, ToPy},
     Engine,
+    conversion::{ToPy, create_js_object, instanceof, js_uint8_array_new},
 };
 
 #[derive(Debug)]

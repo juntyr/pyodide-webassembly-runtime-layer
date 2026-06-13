@@ -1,14 +1,14 @@
 use pyo3::{
+    PyTypeInfo,
     exceptions::{PyRuntimeError, PyValueError},
     intern,
     prelude::*,
     sync::PyOnceLock,
     types::IntoPyDict,
-    PyTypeInfo,
 };
 use wasm_runtime_layer::{
-    backend::{Extern, Ref, Val},
     RefType, ValType,
+    backend::{Extern, Ref, Val},
 };
 
 use crate::{Engine, ExternRef};

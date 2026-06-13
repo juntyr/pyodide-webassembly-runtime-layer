@@ -9,7 +9,7 @@ use wasm_runtime_layer::backend::{
 };
 use wobbly::sync::Wobbly;
 
-use crate::{func::PyHostFuncFn, Engine};
+use crate::{Engine, func::PyHostFuncFn};
 
 /// A store for the [`Engine`], which stores host-defined data `T` and internal
 /// state.

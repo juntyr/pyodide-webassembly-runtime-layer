@@ -4,9 +4,9 @@ use pyo3::prelude::*;
 use wasm_runtime_layer::backend::{AsContextMut, WasmExternRef};
 
 use crate::{
-    conversion::{py_to_js_proxy, ToPy},
-    store::StoreContext,
     Engine,
+    conversion::{ToPy, py_to_js_proxy},
+    store::StoreContext,
 };
 
 /// Extern host reference type.

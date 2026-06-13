@@ -3,13 +3,13 @@ use std::{collections::BTreeMap, sync::Arc};
 use fxhash::FxHashMap;
 use pyo3::{intern, prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, Export, Extern, Imports, WasmInstance, WasmModule},
     ExportType, ExternType,
+    backend::{AsContext, AsContextMut, Export, Extern, Imports, WasmInstance, WasmModule},
 };
 
 use crate::{
-    conversion::{create_js_object, ToPy},
     Engine, Func, Global, Memory, Module, Table,
+    conversion::{ToPy, create_js_object},
 };
 
 /// An instantiated instance of a WASM [`Module`].

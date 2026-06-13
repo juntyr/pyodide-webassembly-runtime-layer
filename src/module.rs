@@ -3,13 +3,13 @@ use std::sync::Arc;
 use fxhash::FxHashMap;
 use pyo3::{prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
-    backend::WasmModule, ExportType, ExternType, FuncType, GlobalType, ImportType, MemoryType,
-    RefType, TableType, ValType,
+    ExportType, ExternType, FuncType, GlobalType, ImportType, MemoryType, RefType, TableType,
+    ValType, backend::WasmModule,
 };
 
 use crate::{
-    conversion::js_uint8_array_new, features::UnsupportedWasmFeatureExtensionError, ArgumentVec,
-    Engine,
+    ArgumentVec, Engine, conversion::js_uint8_array_new,
+    features::UnsupportedWasmFeatureExtensionError,
 };
 
 #[derive(Debug)]
