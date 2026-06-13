@@ -4,18 +4,18 @@ use std::{
     sync::{Arc, Weak},
 };
 
-use pyo3::{exceptions::PyRuntimeError, prelude::*, types::PyTuple, PyTypeInfo};
+use pyo3::{PyTypeInfo, exceptions::PyRuntimeError, prelude::*, types::PyTuple};
 use pyo3_error::PyErrChain;
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, Val, WasmFunc, WasmStoreContext},
     FuncType,
+    backend::{AsContext, AsContextMut, Val, WasmFunc, WasmStoreContext},
 };
 use wobbly::sync::Wobbly;
 
 use crate::{
-    conversion::{py_to_js_proxy, ToPy, ValExt},
-    store::StoreContextMut,
     ArgumentVec, Engine,
+    conversion::{ToPy, ValExt, py_to_js_proxy},
+    store::StoreContextMut,
 };
 
 /// A bound function, which may be an export from a WASM [`Instance`] or a host
@@ -47,9 +47,9 @@ impl WasmFunc<Engine> for Func {
         mut ctx: impl AsContextMut<Engine, UserState = T>,
         ty: FuncType,
         func: impl 'static
-            + Send
-            + Sync
-            + Fn(StoreContextMut<T>, &[Val<Engine>], &mut [Val<Engine>]) -> anyhow::Result<()>,
+        + Send
+        + Sync
+        + Fn(StoreContextMut<T>, &[Val<Engine>], &mut [Val<Engine>]) -> anyhow::Result<()>,
     ) -> Self {
         Python::attach(|py| -> Result<Self, PyErr> {
             #[cfg(feature = "tracing")]

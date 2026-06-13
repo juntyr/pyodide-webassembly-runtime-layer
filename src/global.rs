@@ -1,12 +1,12 @@
 use pyo3::{intern, prelude::*, sync::PyOnceLock};
 use wasm_runtime_layer::{
-    backend::{AsContext, AsContextMut, Val, WasmGlobal},
     GlobalType,
+    backend::{AsContext, AsContextMut, Val, WasmGlobal},
 };
 
 use crate::{
-    conversion::{create_js_object, instanceof, ToPy, ValExt, ValTypeExt},
     Engine,
+    conversion::{ToPy, ValExt, ValTypeExt, create_js_object, instanceof},
 };
 
 /// A global variable accesible as an import or export in a module.
